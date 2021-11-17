@@ -2,13 +2,15 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 	coincidence_time, histostosend, enable_outputs, 
 	phasecounterselect,phaseupdown,phasestep,scanclk, clkswitch,
 	histos, resethist, activeclock,
-	setseed, seed, prescale, dorolling, dead_time
+	setseed, seed, prescale, dorolling, dead_time,
+	io_top_extra, triggermask
 	);
 	
 	input clk;
 	input[7:0] rxData;
 	input rxReady;
 	input txBusy;
+	input [5-1:0] io_top_extra;
 	output reg txStart;
 	output reg[7:0] txData;
 	output reg[7:0] readdata;//first byte we got
@@ -32,6 +34,7 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 	output reg[7:0] coincidence_time=20; // number of ticks to buffer inputs for (sets the coincidence time)
 	output reg[7:0] dead_time=50; // number of ticks to be dead for after firing
 	output reg[7:0] histostosend=0; // the board from which to get histos
+	output reg[63:0] triggermask=64'hffffffffffffffff; // start with all bits unmasked
 	
 	input reg[31:0] histos[8];
 	output reg resethist;
@@ -67,7 +70,7 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
    SOLVING: begin
 		if (readdata==0) begin		
 			ioCountToSend = 1;
-			data[0]=5; // this is the firmware version
+			data[0]=7; // this is the firmware version
 			state=WRITE1;				
 		end
 		else if (readdata==1) begin //wait for next byte: the coincidence time
@@ -153,6 +156,13 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 		else if (readdata==13) begin // toggle rolling of triggers
 			dorolling = ~dorolling;
 			state=READ;
+		end
+		else if (readdata==14) begin // set the input trigger mask
+			byteswanted=8; if (bytesread<byteswanted) state=READMORE;
+			else begin
+				triggermask={extradata[7],extradata[6],extradata[5],extradata[4],extradata[3],extradata[2],extradata[1],extradata[0]};
+				state=READ;
+			end
 		end
 		else state=READ; // if we got some other command, just ignore it
 	end
