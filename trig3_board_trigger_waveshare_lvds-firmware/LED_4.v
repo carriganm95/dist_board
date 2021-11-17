@@ -41,21 +41,22 @@ always@(posedge clk_adc) begin
 	end
 	
 	// these are the actual triggers
-	if (triedtofire==0 && (Tin[0]>0 || Tin[1]>0)) begin // fire the outputs (0,1) if input 0 or 1 has a trigger that was active
+	if (triedtofire==0 && Tin[15]>0 && (Tin[0]>0 || Tin[1]>0 || Tin[2]>0)) begin // fire the outputs (0,1) if input 0 or 1 has a trigger that was active
 		if (pass_prescale) begin
 			i=0; while (i<16) begin
-				if (i<=1) Tout[i] <= 16; // fire outputs for this long
+				if (i<=4) Tout[i] <= 16; // fire outputs for this long
+				//$display("Tin[i] is %b",Tin[i]);
 				i=i+1;
 			end
 		end
 		triedtofire <= dead_time; // will stay dead for this many clk ticks
 	end
-	else begin // fire the output i if a trigger was active on channel i (for i>1)
-		i=0; while (i<16) begin 
-			if (i>1) if (Tin[i]>0) Tout[i]<=16; // fire outputs for this long
-			i=i+1;
-		end
-	end
+	//else begin // fire the output i if a trigger was active on channel i (for i>1)
+		//i=0; while (i<16) begin 
+			//if (i>1) if (Tin[i]>0) Tout[i]<=16; // fire outputs for this long
+			//i=i+1;
+		//end
+	//end
 	
 	//rolling trigger
 	if (autocounter[20]) begin
