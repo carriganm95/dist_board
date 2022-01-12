@@ -44,3 +44,10 @@ Cross "Program/Configure" and then "Strart" to proceed with.
 
 N.B: You may need to try and retry while plug/unplunging the USB.
 
+#Adding Inputs and Outputs (Updating bsf Files)
+
+Add your new inputs/outputs to the files (either in quartus or in text editor). Then in quartus open the coincidence.bdf file and left click on the module you are updating. Select "update symbol or block" and "selected symbol(s) or block(s)". The new inputs/outputs should now appear. Then using the node tool draw a line connecting the input to the output (make sure that this is properly connected). 
+
+#Checking Timing Requirements
+
+Compile the project and go to compilation report. If there are timing issues the "Timing Analyzer" will be red. There are models of the FPGA where the clock runs slow or fast due to imperfections or external conditions. Right clicking on any of these and selecting "Generate report in timing analyzer" will open the timing analyzer window. In timing analyzer right clicking on any red item and selecting "report worst case path" will show a diagram of clock cycles and the latency. 
