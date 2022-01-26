@@ -3,7 +3,18 @@ from struct import unpack
 import time
 import random
 
-ser=Serial("COM7",921600,timeout=1.0)
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+ser=Serial("/dev/ttyUSB0",921600,timeout=1.0)
 
 ser.write(bytearray([0])) # firmware version
 result = ser.read(1); byte_array = unpack('%dB' % len(result), result); print("firmware v",byte_array[0])
@@ -49,6 +60,7 @@ def get_histos(h):
     ser.write(bytearray([10]))  # get histos
     res = ser.read(32)
     b = unpack('%dB' % len(res), res)
+    if(h==14): print("*************testing***********", b)
     mystr = "histos for "
     mystr+=str(h)
     mystr+=": "
@@ -58,11 +70,47 @@ def get_histos(h):
         mystr += str(myint[i]) + " "
         if i == 3: mystr += ", "
     return mystr, myint
+    
+def set_trigger(triggernumber):
+    tn=int(triggernumber)
+    ser.write(bytearray([15,tn]))
+    print("set the trigger to number", tn, "from the menu")
+# trigger 1-3 are for testing purposes; 1 should give ~0 event, 3 is for testing the default FPGA code
+# trigger 4 corresponds to 4 layers coincidence which is the signal trigger
+# trigger 5 correspond to 3 layers coincidence
+
 
 setrngseed()
 set_prescale(0.3)
 
 set_inputmask("ff","ff","00","00","00","00","00","00") # use just the first 16 inputs
+
+set_trigger(1)
+
+#read what the clock source is
+ser.write(bytearray([8]))
+result = ser.read(1); byte_array = unpack('%dB' % len(result), result); print("clock source",byte_array[0])
+
+#change the dead time
+ser.write(bytearray([11, 1]))
+
+#set input coincidence time
+ser.write(bytearray([1,20]))
+
+#read number of clock cycles since start (work in progress)
+ser.write(bytearray([2,15]))
+ser.write(bytearray([16]))
+result = ser.read(32)
+print("result", result[0], result[1], result[2], result[3], result[0]+result[1]+result[2]+result[3])
+r0 = bin(result[3] << 24)
+r1 = bin(result[2] << 16)
+r2 = bin(result[1] << 8)
+r3 = bin(result[0])
+result = result[3] << 24 | result[2] << 16 | result[1] << 8 | result[0]
+print(bcolors.OKBLUE, r0, r1, r2, r3, result, bcolors.ENDC)
+#byte_array = unpack('%dB' % len(result), result)
+byte_array = result
+print("clock cycles",byte_array)
 
 for his in range(64):
     histostr, histo = get_histos(his)

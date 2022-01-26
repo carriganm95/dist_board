@@ -3,7 +3,7 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 	phasecounterselect,phaseupdown,phasestep,scanclk, clkswitch,
 	histos, resethist, activeclock,
 	setseed, seed, prescale, dorolling, dead_time,
-	io_top_extra, triggermask
+	io_top_extra, triggermask, triggernumber, clockCounter, triggerFired//, resetClock
 	);
 	
 	input clk;
@@ -35,9 +35,13 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 	output reg[7:0] dead_time=50; // number of ticks to be dead for after firing
 	output reg[7:0] histostosend=0; // the board from which to get histos
 	output reg[63:0] triggermask=64'hffffffffffffffff; // start with all bits unmasked
+	output reg[7:0] triggernumber=2; // Trigger to use //Antoine
+	input reg[55:0] clockCounter; // Counter for number of triggers fired (mcarrigan)
+	input reg[7:0] triggerFired; // Trigger most recently fired by board (mcarrigan)
 	
 	input reg[31:0] histos[8];
 	output reg resethist;
+	//output reg resetClock;
 	input activeclock;
 	reg[7:0] i;
 	
@@ -55,6 +59,7 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
       ioCount=0;
       resethist=0;
 		setseed=0;
+		//resetClock=0;
 		if (rxReady) begin
 			readdata = rxData;
          state = SOLVING;
@@ -164,7 +169,36 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 				state=READ;
 			end
 		end
-		else state=READ; // if we got some other command, just ignore it
+		else if (readdata==15) begin // select a trigger from the menu
+			byteswanted=1; if (bytesread<byteswanted) state=READMORE;
+			else begin			ioCountToSend = 1;
+			data[0]=7; // this is the firmware version
+			state=WRITE1;				
+				if (extradata[0]>0) triggernumber=extradata[0];
+				state=READ;
+			end
+		end
+		else if (readdata==16) begin // read out number of clock cycles since start	
+			ioCountToSend = 8;
+			i=0; while (i<8) begin
+				if (i < 7) data[i]=clockCounter[8*i +:8]; // selects 8 bits starting at bit 8*i%32
+				else data[i]=triggerFired[8*(i-7) +:8];
+				//data[i]=0;
+				i=i+1;
+			end
+			state=READ;
+		end
+		/*else if (readdata==17) begin // reset clock counter
+			byteswanted=1; if (bytesread<byteswanted) state=READMORE;
+			else begin
+				ioCountToSend = 1;
+				data[0]=7; //this is the firmware version
+				state=WRITE1;
+				if(extradata[0]>0) resetClock = 1;
+				state=READ;
+			end
+		end*/
+		else state=READ; // if we got some other command, just ignore it		    
 	end
 	
 	CLKSWITCH: begin // to switch between clock inputs, put clkswitch high for a few cycles, then back down low

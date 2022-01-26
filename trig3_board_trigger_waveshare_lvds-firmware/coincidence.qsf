@@ -38,7 +38,7 @@
 
 set_global_assignment -name FAMILY "Cyclone IV E"
 set_global_assignment -name DEVICE EP4CE10F17C8
-set_global_assignment -name TOP_LEVEL_ENTITY coincidence
+set_global_assignment -name TOP_LEVEL_ENTITY serialprocessor
 set_global_assignment -name ORIGINAL_QUARTUS_VERSION "13.0 SP1"
 set_global_assignment -name PROJECT_CREATION_TIME_DATE "08:20:30  NOVEMBER 06, 2018"
 set_global_assignment -name LAST_QUARTUS_VERSION "18.0.0 Lite Edition"
@@ -46,16 +46,7 @@ set_global_assignment -name PROJECT_OUTPUT_DIRECTORY output_files
 set_global_assignment -name MIN_CORE_JUNCTION_TEMP 0
 set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85
 set_global_assignment -name ERROR_CHECK_FREQUENCY_DIVISOR 1
-set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
-set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
-set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
 set_global_assignment -name STRATIX_DEVICE_IO_STANDARD "2.5 V"
-set_instance_assignment -name IO_STANDARD "2.5 V" -to clk50
-set_instance_assignment -name IO_STANDARD "2.5 V" -to led[3]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to led[2]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to led[1]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to led[0]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to reset
 set_global_assignment -name USE_CONFIGURATION_DEVICE OFF
 set_global_assignment -name CRC_ERROR_OPEN_DRAIN OFF
 set_global_assignment -name FORCE_CONFIGURATION_VCCIO ON
@@ -71,46 +62,11 @@ set_location_assignment PIN_C11 -to led[1]
 set_location_assignment PIN_B16 -to reset
 set_location_assignment PIN_P1 -to serial_in
 set_location_assignment PIN_N1 -to serial_out
-set_instance_assignment -name IO_STANDARD "2.5 V" -to enable_outputs
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[0]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[1]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[2]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[3]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[8]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[4]
 set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "23 MM HEAT SINK WITH 200 LFPM AIRFLOW"
 set_global_assignment -name POWER_BOARD_THERMAL_MODEL "NONE (CONSERVATIVE)"
 set_global_assignment -name VERILOG_INPUT_VERSION SYSTEMVERILOG_2005
 set_global_assignment -name VERILOG_SHOW_LMF_MAPPING_MESSAGES OFF
 set_global_assignment -name OPTIMIZATION_MODE BALANCED
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[3]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[5]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[9]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to serial_in
-set_instance_assignment -name IO_STANDARD "2.5 V" -to serial_out
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[10]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[11]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[12]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[13]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[14]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[15]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[7]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[6]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[5]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[4]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[2]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[1]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[0]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[6]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[15]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[7]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[14]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[8]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[13]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[12]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[11]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[10]
-set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[9]
 set_location_assignment PIN_D14 -to coax_in[0]
 set_location_assignment PIN_C16 -to coax_in[1]
 set_location_assignment PIN_D16 -to coax_in[2]
@@ -131,16 +87,6 @@ set_location_assignment PIN_K2 -to coax_out[13]
 set_location_assignment PIN_J2 -to coax_out[14]
 set_location_assignment PIN_G2 -to coax_out[15]
 set_global_assignment -name DEVICE_FILTER_SPEED_GRADE 8
-set_global_assignment -name BDF_FILE coincidence.bdf
-set_global_assignment -name SDC_FILE coincidence.sdc
-set_global_assignment -name VERILOG_FILE serialprocessor.v
-set_global_assignment -name VERILOG_FILE LED_4.v
-set_global_assignment -name VERILOG_FILE rng.v
-set_global_assignment -name VERILOG_FILE async.v
-set_global_assignment -name QIP_FILE pll2.qip
-set_global_assignment -name QIP_FILE pll1.qip
-set_global_assignment -name CDF_FILE Chain1.cdf
-set_global_assignment -name CDF_FILE Chain2.cdf
 set_global_assignment -name ENABLE_OCT_DONE OFF
 set_global_assignment -name ENABLE_CONFIGURATION_PINS OFF
 set_global_assignment -name ENABLE_NCE_PIN OFF
@@ -165,7 +111,6 @@ set_location_assignment PIN_N14 -to coax_in[10]
 set_location_assignment PIN_M12 -to coax_in[9]
 set_location_assignment PIN_L14 -to coax_in[8]
 set_location_assignment PIN_F2 -to ext_trig_out
-set_instance_assignment -name IO_STANDARD LVDS_E_3R -to ext_trig_out
 set_location_assignment PIN_F1 -to "ext_trig_out(n)"
 set_location_assignment PIN_K16 -to coax_in[16]
 set_location_assignment PIN_L16 -to coax_in[17]
@@ -297,4 +242,63 @@ set_location_assignment PIN_A8 -to ep4ce10_io_extra[26]
 set_location_assignment PIN_E6 -to ep4ce10_io_extra[27]
 set_location_assignment PIN_B10 -to led[2]
 set_location_assignment PIN_B7 -to led[3]
+set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
+set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
+set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
+set_instance_assignment -name IO_STANDARD "2.5 V" -to clk50
+set_instance_assignment -name IO_STANDARD "2.5 V" -to led[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to led[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to led[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to led[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to reset
+set_instance_assignment -name IO_STANDARD "2.5 V" -to enable_outputs
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[8]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[4]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[5]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[9]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to serial_in
+set_instance_assignment -name IO_STANDARD "2.5 V" -to serial_out
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[10]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[11]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[12]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[13]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[14]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[15]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[7]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[6]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[5]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[4]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_in[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[6]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[15]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[7]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[14]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[8]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[13]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[12]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[11]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[10]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[9]
+set_instance_assignment -name IO_STANDARD LVDS_E_3R -to ext_trig_out
+set_global_assignment -name BDF_FILE coincidence.bdf
+set_global_assignment -name SDC_FILE coincidence.sdc
+set_global_assignment -name VERILOG_FILE serialprocessor.v
+set_global_assignment -name VERILOG_FILE LED_4.v
+set_global_assignment -name VERILOG_FILE rng.v
+set_global_assignment -name VERILOG_FILE async.v
+set_global_assignment -name QIP_FILE pll2.qip
+set_global_assignment -name QIP_FILE pll1.qip
+set_global_assignment -name CDF_FILE Chain1.cdf
+set_global_assignment -name CDF_FILE Chain2.cdf
+set_global_assignment -name TIMING_ANALYZER_MULTICORNER_ANALYSIS ON
+set_global_assignment -name SMART_RECOMPILE OFF
+set_global_assignment -name FLOW_ENABLE_IO_ASSIGNMENT_ANALYSIS OFF
+set_global_assignment -name VHDL_SHOW_LMF_MAPPING_MESSAGES OFF
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
