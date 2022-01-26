@@ -38,7 +38,7 @@
 
 set_global_assignment -name FAMILY "Cyclone IV E"
 set_global_assignment -name DEVICE EP4CE10F17C8
-set_global_assignment -name TOP_LEVEL_ENTITY serialprocessor
+set_global_assignment -name TOP_LEVEL_ENTITY coincidence
 set_global_assignment -name ORIGINAL_QUARTUS_VERSION "13.0 SP1"
 set_global_assignment -name PROJECT_CREATION_TIME_DATE "08:20:30  NOVEMBER 06, 2018"
 set_global_assignment -name LAST_QUARTUS_VERSION "18.0.0 Lite Edition"
@@ -242,6 +242,20 @@ set_location_assignment PIN_A8 -to ep4ce10_io_extra[26]
 set_location_assignment PIN_E6 -to ep4ce10_io_extra[27]
 set_location_assignment PIN_B10 -to led[2]
 set_location_assignment PIN_B7 -to led[3]
+set_global_assignment -name BDF_FILE coincidence.bdf
+set_global_assignment -name SDC_FILE coincidence.sdc
+set_global_assignment -name VERILOG_FILE serialprocessor.v
+set_global_assignment -name VERILOG_FILE LED_4.v
+set_global_assignment -name VERILOG_FILE rng.v
+set_global_assignment -name VERILOG_FILE async.v
+set_global_assignment -name QIP_FILE pll2.qip
+set_global_assignment -name QIP_FILE pll1.qip
+set_global_assignment -name CDF_FILE Chain1.cdf
+set_global_assignment -name CDF_FILE Chain2.cdf
+set_global_assignment -name TIMING_ANALYZER_MULTICORNER_ANALYSIS ON
+set_global_assignment -name SMART_RECOMPILE OFF
+set_global_assignment -name FLOW_ENABLE_IO_ASSIGNMENT_ANALYSIS OFF
+set_global_assignment -name VHDL_SHOW_LMF_MAPPING_MESSAGES OFF
 set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
 set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
 set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
@@ -287,18 +301,4 @@ set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[11]
 set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[10]
 set_instance_assignment -name IO_STANDARD "2.5 V" -to coax_out[9]
 set_instance_assignment -name IO_STANDARD LVDS_E_3R -to ext_trig_out
-set_global_assignment -name BDF_FILE coincidence.bdf
-set_global_assignment -name SDC_FILE coincidence.sdc
-set_global_assignment -name VERILOG_FILE serialprocessor.v
-set_global_assignment -name VERILOG_FILE LED_4.v
-set_global_assignment -name VERILOG_FILE rng.v
-set_global_assignment -name VERILOG_FILE async.v
-set_global_assignment -name QIP_FILE pll2.qip
-set_global_assignment -name QIP_FILE pll1.qip
-set_global_assignment -name CDF_FILE Chain1.cdf
-set_global_assignment -name CDF_FILE Chain2.cdf
-set_global_assignment -name TIMING_ANALYZER_MULTICORNER_ANALYSIS ON
-set_global_assignment -name SMART_RECOMPILE OFF
-set_global_assignment -name FLOW_ENABLE_IO_ASSIGNMENT_ANALYSIS OFF
-set_global_assignment -name VHDL_SHOW_LMF_MAPPING_MESSAGES OFF
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
