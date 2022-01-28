@@ -13,8 +13,8 @@ module LED_4(
 	input [63:0] triggermask,
 	input [7:0] triggernumber,
 	output reg[55:0] clockCounter,
-	output reg[7:0] triggerFired
-	//input resetClock
+	output reg[7:0] triggerFired,
+	input resetClock
 	);
 
 reg[7:0] i;
@@ -39,13 +39,13 @@ reg[2:0] Nactiverowstemp[4];// max of 4
 reg[7:0] triggeruse;
 reg[7:0] lastTrigFired=0; //when a trigger fires set this equal to the trigger number
 reg[7:0] triggerTemp=0;
-//reg resetClock2;
+reg resetClock2;
 
 always@(posedge clk_adc) begin
 	triggeruse <= triggernumber;
 	pass_prescale <= (randnum<=prescale2);
 	resethist2<=resethist;
-	//resetClock2<=resetClock;
+	resetClock2<=resetClock;
 	histostosend2<=histostosend;
 	prescale2<=prescale;
 	clockCounter<=counter;
@@ -226,9 +226,9 @@ always@(posedge clk_adc) begin
 	
 	if (led[0]==1'b1) led[1]<=1'b1; // turn it off when the other led toggles, so we can see it turn back on
 	
-	/*if(resetClock2) begin
-		clockCounter <= 0;
-	end*/
+	if(resetClock2) begin
+		lastTrigFired <= 0;
+	end
 	
 end
 
@@ -264,7 +264,8 @@ end
 reg[51:0] counter=0;
 always@(posedge clk) begin
 	if (ext_trig_out) begin
-		counter<=counter+1;
+		if(!resetClock2) counter<=counter+1;
+		if(resetClock2) counter<=0;
 	end
 	led[0]<=counter[26]; // flashing
 	led[2]<=dorolling;

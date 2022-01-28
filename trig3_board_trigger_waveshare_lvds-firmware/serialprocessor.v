@@ -3,7 +3,7 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 	phasecounterselect,phaseupdown,phasestep,scanclk, clkswitch,
 	histos, resethist, activeclock,
 	setseed, seed, prescale, dorolling, dead_time,
-	io_top_extra, triggermask, triggernumber, clockCounter, triggerFired//, resetClock
+	io_top_extra, triggermask, triggernumber, clockCounter, triggerFired, resetClock
 	);
 	
 	input clk;
@@ -16,7 +16,7 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 	output reg[7:0] readdata;//first byte we got
 	output reg enable_outputs=0;//set low to enable outputs
 	reg[7:0] extradata[10];//to store command extra data, like arguemnts (up to 10 bytes)
-	localparam READ=0, SOLVING=1, WRITE1=3, WRITE2=4, READMORE=5, PLLCLOCK=6, CLKSWITCH=7, RESETHIST=8;
+	localparam READ=0, SOLVING=1, WRITE1=3, WRITE2=4, READMORE=5, PLLCLOCK=6, CLKSWITCH=7, RESETHIST=8, RESETCLOCK=9;
 	reg[7:0] state=READ;
 	reg[7:0] bytesread, byteswanted;
 	
@@ -41,7 +41,7 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 	
 	input reg[31:0] histos[8];
 	output reg resethist;
-	//output reg resetClock;
+	output reg resetClock;
 	input activeclock;
 	reg[7:0] i;
 	
@@ -59,7 +59,7 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
       ioCount=0;
       resethist=0;
 		setseed=0;
-		//resetClock=0;
+		resetClock=0;
 		if (rxReady) begin
 			readdata = rxData;
          state = SOLVING;
@@ -186,18 +186,18 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 				//data[i]=0;
 				i=i+1;
 			end
-			state=READ;
+			state=WRITE1;
 		end
-		/*else if (readdata==17) begin // reset clock counter
-			byteswanted=1; if (bytesread<byteswanted) state=READMORE;
-			else begin
-				ioCountToSend = 1;
-				data[0]=7; //this is the firmware version
-				state=WRITE1;
-				if(extradata[0]>0) resetClock = 1;
-				state=READ;
-			end
-		end*/
+		else if (readdata==17) begin // reset clock counter
+			//byteswanted=1; if (bytesread<byteswanted) state=READMORE;
+			//else begin
+			ioCountToSend = 1;
+				//data[0]=7; //this is the firmware version
+				//state=WRITE1;
+				//if(extradata[0]>0) resetClock = 1;
+			state=RESETCLOCK;
+			//end
+		end
 		else state=READ; // if we got some other command, just ignore it		    
 	end
 	
@@ -224,9 +224,15 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 		state=WRITE1;
 	end
 	
+	RESETCLOCK: begin // to reset clock
+		resetClock=1;
+		state=WRITE1;
+	end
+	
 	//just writng out some data bytes over serial
 	WRITE1: begin
 		resethist=0;
+		resetClock=0;
 		if (!txBusy) begin
 			txData = data[ioCount];
          txStart = 1;

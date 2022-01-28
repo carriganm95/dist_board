@@ -219,6 +219,13 @@ refer to the applicable agreement for further details.
 		(text "triggernumber[7..0]" (rect 176 315 251 327)(font "Arial" ))
 		(line (pt 272 320)(pt 256 320)(line_width 3))
 	)
+	(port
+		(pt 272 336)
+		(output)
+		(text "resetClock" (rect 0 0 42 12)(font "Arial" ))
+		(text "resetClock" (rect 209 331 251 343)(font "Arial" ))
+		(line (pt 272 336)(pt 256 336)(line_width 1))
+	)
 	(drawing
 		(rectangle (rect 16 16 256 352)(line_width 1))
 	)
