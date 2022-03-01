@@ -40,6 +40,7 @@ reg[7:0] triggeruse;
 reg[7:0] lastTrigFired=0; //when a trigger fires set this equal to the trigger number
 reg[7:0] triggerTemp=0;
 reg resetClock2;
+reg isFiring=0;
 
 always@(posedge clk_adc) begin
 	triggeruse <= triggernumber;
@@ -51,6 +52,7 @@ always@(posedge clk_adc) begin
 	clockCounter<=counter;
 	triggerFired<=lastTrigFired;
 	//lastTrigFired <= 0;
+	isFiring <= 0;
 	i=0; while (i<64) begin
 		if (triggermask[i]) coaxinreg[i] <= ~coax_in[i]; // inputs are inverted (so that unconnected inputs are 0), then read into registers and buffered
 		else coaxinreg[i] <= 0; // masked out inputs are set to 0 regardless of input
@@ -60,6 +62,7 @@ always@(posedge clk_adc) begin
 			//coax_out[i] <= coaxinreg[i]; // passthrough		
 			if (Tout[i]>0) Tout[i] <= Tout[i]-1; // count down how long the triggers have been active
 			if (triedtofire[i]>0) triedtofire[i] <= triedtofire[i]-1; // count down deadtime for outputs
+		   if (triedtofire[i]>0) isFiring <=1; // don't fire any trigger within the coincidence time
 		end
 		i=i+1;
 	end
@@ -91,7 +94,7 @@ always@(posedge clk_adc) begin
 	end
 	
 	// fire the outputs (0 and 1) if there are >1 input groups active
-	if (triggernumber==3 && triedtofire[0]==0 && (Nactive>1) ) begin
+	if (triggernumber>0 && triedtofire[0]==0 && isFiring==0 && (Nactive>1) ) begin
 		if (pass_prescale) begin
 			i=0; while (i<16) begin
 				if (i==8) Tout[i] <= 16; // fire outputs for this long; changed output from 0,1 to 8 mcarrigan
@@ -103,7 +106,7 @@ always@(posedge clk_adc) begin
 	end
 	
 	// fire the outputs (2 and 3) if there are >1 input groups active in any row
-	if (triggernumber==3 && triedtofire[1]==0 && (Nin[0]>1||Nin[1]>1||Nin[2]>1||Nin[3]>1||Nin[4]>1||Nin[5]>1||Nin[6]>1||Nin[7]>1||Nin[8]>1||Nin[9]>1||Nin[10]>1||Nin[11]>1||Nin[12]>1||Nin[13]>1||Nin[14]>1||Nin[15]>1) ) begin
+	if (triggernumber[3]>0 && triedtofire[1]==0 && isFiring==0 && (Nin[0]>1||Nin[1]>1||Nin[2]>1||Nin[3]>1||Nin[4]>1||Nin[5]>1||Nin[6]>1||Nin[7]>1||Nin[8]>1||Nin[9]>1||Nin[10]>1||Nin[11]>1||Nin[12]>1||Nin[13]>1||Nin[14]>1||Nin[15]>1) ) begin
 		if (pass_prescale) begin
 			i=0; while (i<16) begin
 				if (i==8) Tout[i] <= 16; // fire outputs for this long; changed output from 2,3 to 8 mcarrigan
@@ -115,7 +118,7 @@ always@(posedge clk_adc) begin
 	end
 	
 	// fire the outputs (4 and 5) if there are >2 input groups active in any row
-	if (triggernumber==3 && triedtofire[2]==0 && (Nin[0]>2||Nin[1]>2||Nin[2]>2||Nin[3]>2||Nin[4]>2||Nin[5]>2||Nin[6]>2||Nin[7]>2||Nin[8]>2||Nin[9]>2||Nin[10]>2||Nin[11]>2||Nin[12]>2||Nin[13]>2||Nin[14]>2||Nin[15]>2) ) begin
+	if (triggernumber[3]>0 && triedtofire[2]==0 && isFiring==0 && (Nin[0]>2||Nin[1]>2||Nin[2]>2||Nin[3]>2||Nin[4]>2||Nin[5]>2||Nin[6]>2||Nin[7]>2||Nin[8]>2||Nin[9]>2||Nin[10]>2||Nin[11]>2||Nin[12]>2||Nin[13]>2||Nin[14]>2||Nin[15]>2) ) begin
 		if (pass_prescale) begin
 			i=0; while (i<16) begin
 				if (i==4 || i==5) Tout[i] <= 16; // fire outputs for this long
@@ -127,7 +130,7 @@ always@(posedge clk_adc) begin
 	end
 	
 	// fire the outputs (6 and 7) if there are >2 input groups active in any row, and just 1 row with any input groups active
-	if (triggernumber==3 && triedtofire[3]==0 && (Nin[0]>2||Nin[1]>2||Nin[2]>2||Nin[3]>2||Nin[4]>2||Nin[5]>2||Nin[6]>2||Nin[7]>2||Nin[8]>2||Nin[9]>2||Nin[10]>2||Nin[11]>2||Nin[12]>2||Nin[13]>2||Nin[14]>2||Nin[15]>2) 
+	if (triggernumber[3]>0 && triedtofire[3]==0 && isFiring==0 && (Nin[0]>2||Nin[1]>2||Nin[2]>2||Nin[3]>2||Nin[4]>2||Nin[5]>2||Nin[6]>2||Nin[7]>2||Nin[8]>2||Nin[9]>2||Nin[10]>2||Nin[11]>2||Nin[12]>2||Nin[13]>2||Nin[14]>2||Nin[15]>2) 
 								 && (Nactiverows<2) ) begin
 		if (pass_prescale) begin
 			i=0; while (i<16) begin
@@ -142,7 +145,7 @@ always@(posedge clk_adc) begin
 	// fire the output (8) if there are >0 input groups active (good for testing inputs)
 	// added busy veto Tin[15] mcarrigan
 	// replace Tin[15] by coaxinreg for more acccurate veto + add trigger number //Antoine
-	if ( triggernumber==2 && triedtofire[4]==0 && coaxinreg[15] > 0 && (Nactive>1) ) begin
+	if ( triggernumber[2] && triedtofire[4]==0 && isFiring==0 && coaxinreg[15] > 0 && (Nactive>1) ) begin
 		if (pass_prescale) begin
 			i=0; while (i<16) begin
 				if (i<3) Tout[i] <= 16; // fire outputs for this long, output to 4 coax outputs
@@ -153,7 +156,7 @@ always@(posedge clk_adc) begin
 			led[1] <= 1'b0; // turn on the LED
 		end
 	end	
-	if ( triggernumber==2 && triedtofire[5]==0 && coaxinreg[15] > 0 && (Nactivetemp[0]>1) ) begin
+	if ( triggernumber[2]>0 && triedtofire[5]==0 && isFiring==0 && coaxinreg[15] > 0 && (Nactivetemp[0]>1) ) begin
 		if (pass_prescale) begin
 			i=0; while (i<16) begin
 				if (i==3) Tout[i] <= 16; // fire outputs for this long, output to 4 coax outputs
@@ -165,7 +168,7 @@ always@(posedge clk_adc) begin
 		end
 	end
 		//testing trigger number //Antoine
-	if (triggernumber==1 && triedtofire[6]==0 && coaxinreg[15] > 0 && (Nactive>0) ) begin
+	if (triggernumber[1]>0 && triedtofire[6]==0 && isFiring==0 && coaxinreg[15] > 0 && (Nactive>0) ) begin
 		if (pass_prescale) begin
 			i=0; while (i<16) begin
 				if (i<4) Tout[i] <= 16; // fire outputs for this long, output to 4 coax outputs
@@ -178,7 +181,7 @@ always@(posedge clk_adc) begin
 	end
 	
 	//Implementing coincidence triggers - Antoine
-	if ( triggernumber==4 && triedtofire[7]==0 && coaxinreg[15] > 0 && (Nin_coin[0]>3||Nin_coin[1]>3||Nin_coin[2]>3||Nin_coin[3]>3||Nin_coin[4]>3||Nin_coin[5]>3||Nin_coin[6]>3||Nin_coin[7]>3)) begin // Antoine - 4 layers coincidence 
+	if ( triggernumber[4]>0 && triedtofire[7]==0 && isFiring==0 && coaxinreg[15] > 0 && (Nin_coin[0]>3||Nin_coin[1]>3||Nin_coin[2]>3||Nin_coin[3]>3||Nin_coin[4]>3||Nin_coin[5]>3||Nin_coin[6]>3||Nin_coin[7]>3)) begin // Antoine - 4 layers coincidence 
 		if (pass_prescale) begin
 			i=0; while (i<16) begin
 				if (i<3) Tout[i] <= 16; // fire outputs for this long, output to 4 coax outputs
@@ -190,7 +193,7 @@ always@(posedge clk_adc) begin
 		end
 	end	
 
-	if ( triggernumber==5 && triedtofire[8]==0 && coaxinreg[15] > 0  && (Nin_coin_3[0]>0||Nin_coin_3[1]>0||Nin_coin_3[2]>0||Nin_coin_3[3]>0||Nin_coin_3[4]>0||Nin_coin_3[5]>0||Nin_coin_3[6]>0||Nin_coin_3[7]>0)) begin // Antoine - 3 layers coincidence 
+	if ( triggernumber[5]>0 && triedtofire[8]==0 && isFiring==0 && coaxinreg[15] > 0  && (Nin_coin_3[0]>0||Nin_coin_3[1]>0||Nin_coin_3[2]>0||Nin_coin_3[3]>0||Nin_coin_3[4]>0||Nin_coin_3[5]>0||Nin_coin_3[6]>0||Nin_coin_3[7]>0)) begin // Antoine - 3 layers coincidence 
 		if (pass_prescale) begin
 			i=0; while (i<16) begin
 				if (i<3) Tout[i] <= 16; // fire outputs for this long, output to 4 coax outputs
@@ -202,7 +205,7 @@ always@(posedge clk_adc) begin
 		end
 	end	
 
-	if ( triggernumber==6 && triedtofire[9]==0 && coaxinreg[15] > 0) begin // mcarrigan, check clock in 
+	if ( triggernumber[6]>0 && triedtofire[9]==0 && isFiring==0 && coaxinreg[15] > 0) begin // mcarrigan, check clock in 
 		//if (pass_prescale) begin
 		//clockCounter<= clockCounter + 1;
 		i=0; while (i<16) begin

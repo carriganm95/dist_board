@@ -71,13 +71,16 @@ def get_histos(h):
         if i == 3: mystr += ", "
     return mystr, myint
     
-def set_trigger(triggernumber):
-    tn=int(triggernumber)
+def set_trigger(tn8,tn7,tn6,tn5,tn4,tn3,tn2,tn1): # put value 1 for each trigger you want to use (0 means not use), begin is trigger number 8
+    tn_b=str(tn8*pow(10, 7)+tn7*pow(10, 6)+tn6*pow(10, 5)+tn5*pow(10, 4)+tn4*pow(10, 3)+tn3*pow(10, 2)+tn2*pow(10, 1)+tn1*pow(10, 0))
+    tn=int(tn_b, base=2)
     ser.write(bytearray([15,tn]))
     print("set the trigger to number", tn, "from the menu")
+#enter the combination of all the triggers wanted ie if want to use trigger 2,3 and 7 enter 732
 # trigger 1-3 are for testing purposes; 1 should give ~0 event, 3 is for testing the default FPGA code
 # trigger 4 corresponds to 4 layers coincidence which is the signal trigger
 # trigger 5 correspond to 3 layers coincidence
+
 
 
 setrngseed()
@@ -85,7 +88,7 @@ set_prescale(0.3)
 
 set_inputmask("ff","ff","00","00","00","00","00","00") # use just the first 16 inputs
 
-set_trigger(1)
+set_trigger(0,0,1,0,0,0,1,1)
 
 #read what the clock source is
 ser.write(bytearray([8]))

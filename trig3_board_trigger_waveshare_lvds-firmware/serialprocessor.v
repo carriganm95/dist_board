@@ -35,7 +35,7 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 	output reg[7:0] dead_time=50; // number of ticks to be dead for after firing
 	output reg[7:0] histostosend=0; // the board from which to get histos
 	output reg[63:0] triggermask=64'hffffffffffffffff; // start with all bits unmasked
-	output reg[7:0] triggernumber=2; // Trigger to use //Antoine
+	output reg[7:0] triggernumber=8'd2; // Trigger to use //Antoine
 	input reg[55:0] clockCounter; // Counter for number of triggers fired (mcarrigan)
 	input reg[7:0] triggerFired; // Trigger most recently fired by board (mcarrigan)
 	
