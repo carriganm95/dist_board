@@ -75,7 +75,7 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
    SOLVING: begin
 		if (readdata==0) begin		
 			ioCountToSend = 1;
-			data[0]=7; // this is the firmware version
+			data[0]=8; // this is the firmware version
 			state=WRITE1;				
 		end
 		else if (readdata==1) begin //wait for next byte: the coincidence time
@@ -93,8 +93,15 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 			end
 		end
 		else if (readdata==3) begin //toggle output enable
-			enable_outputs = ~enable_outputs;
-			state=READ;
+			ioCountToSend = 1;
+			byteswanted=1; if(bytesread<byteswanted) state=READMORE;
+			else begin
+				enable_outputs = ~extradata[0];
+				if (enable_outputs) data[0] = 1;
+				else data[0] = 0;
+				//data[0] = enable_outputs;
+				state=WRITE1;
+			end
 		end
 		else if (readdata==4) begin //toggle clk inputs
 			pllclock_counter=0;			
@@ -183,7 +190,6 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 			i=0; while (i<8) begin
 				if (i < 7) data[i]=clockCounter[8*i +:8]; // selects 8 bits starting at bit 8*i%32
 				else data[i]=triggerFired[8*(i-7) +:8];
-				//data[i]=0;
 				i=i+1;
 			end
 			state=WRITE1;
