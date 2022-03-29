@@ -14,7 +14,8 @@ module LED_4(
 	input [7:0] triggernumber,
 	output reg[55:0] clockCounter,
 	output reg[7:0] triggerFired,
-	input resetClock
+	input resetClock,
+	input resetOut
 	);
 
 reg[7:0] i;
@@ -37,29 +38,42 @@ reg[4:0] Nactivetemp[4];//max of 4*4=16
 reg[4:0] Nactiverows;//max of 16
 reg[2:0] Nactiverowstemp[4];// max of 4
 reg[7:0] triggeruse;
-reg[7:0] lastTrigFired=0; //when a trigger fires set this equal to the trigger number
+reg[7:0] lastTrigFired; //when a trigger fires set this equal to the trigger number
+reg[55:0] clocksFired; //array to hold the clocks fired
 reg[7:0] triggerTemp=0;
 reg resetClock2;
+reg resetOut2;
 reg isFiring=0;
+reg[2:0] triggerCounter=0; //counter for how many triggers are stored in memory
 
 always@(posedge clk_adc) begin
 	triggeruse <= triggernumber;
 	pass_prescale <= (randnum<=prescale2);
 	resethist2<=resethist;
 	resetClock2<=resetClock;
+	resetOut2<=resetOut;
 	histostosend2<=histostosend;
 	prescale2<=prescale;
-	clockCounter<=counter;
-	triggerFired<=lastTrigFired;
-	//lastTrigFired <= 0;
+	//clockCounter<=clocksFired;
+	//triggerFired<=lastTrigFired;
+	//lastTrigFired <= ;
 	isFiring <= 0;
 	i=0; while (i<64) begin
 		if (triggermask[i]) coaxinreg[i] <= ~coax_in[i]; // inputs are inverted (so that unconnected inputs are 0), then read into registers and buffered
 		else coaxinreg[i] <= 0; // masked out inputs are set to 0 regardless of input
 		if (i<8) begin
 		    histosout[i]<=histos[i][histostosend2]; // histo output
-			 if (triedtofire[i]>0) lastTrigFired[i] <= 1'b1;
-			 else lastTrigFired[i] <= 1'b0;
+			 //if (triedtofire[i]>0) lastTrigFired[triggerCounter][i] <= 1'b1;
+			 //if(i%2) lastTrigFired[triggerCounter][i] <= 1'b1;
+			 if(i%2) lastTrigFired[i] <= 1'b1;
+			 //else lastTrigFired[triggerCounter][i] <= 1'b0;
+			 //if(resetOut2) begin
+			     //lastTrigFired[i]<=0;
+				  //clockCounter[i]<=0;
+				  //triggerFired[i]<=0;
+			 //end
+			 //triggerFired[i]<=lastTrigFired[i];
+			 //clockCounter[i]<= 11111111 //clocksFired[i];
 		end
 		if (i<16) begin // for output stuff
 			coax_out[i] <= Tout[i]>0; // outputs fire while Tout is high
@@ -70,6 +84,11 @@ always@(posedge clk_adc) begin
 		end
 		i=i+1;
 	end
+	//if(lastTrigFired[triggerCounter]>0) begin
+	    //triggerFired[triggerCounter] <= lastTrigFired[triggerCounter];
+		 //clockCounter[triggerCounter] <= counter;
+	    //triggerCounter=triggerCounter+1;
+   //end
 	
 	// see how many "groups" (a set of two bars) are active in each "row" of 4 groups (for projective triggers)
 	// we ask for them to be >2 so that they will disappear before the calculated "vetos" will be gone
@@ -241,9 +260,9 @@ always@(posedge clk_adc) begin
 		 //i=i+1;
    //end
 	
-	if(resetClock2) begin
-		lastTrigFired <= 0;
-	end
+	//if(resetClock2) begin
+	//	lastTrigFired <= 0;
+	//end
 	
 end
 

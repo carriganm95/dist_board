@@ -115,6 +115,9 @@ print(bcolors.OKBLUE, r0, r1, r2, r3, result, bcolors.ENDC)
 byte_array = result
 print("clock cycles",byte_array)
 
+print("Turning on/off trigger enable")
+ser.write(bytearray([3]))
+
 for his in range(64):
     histostr, histo = get_histos(his)
     if histo[0]>0: print(histostr)

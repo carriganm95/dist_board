@@ -3,6 +3,9 @@ import os
 from serial import Serial
 from array import array
 import ROOT as r
+from colorama import Fore, Style, init
+
+init()
 
 class bcolors:
     HEADER = '\033[95m'
@@ -11,7 +14,7 @@ class bcolors:
     OKGREEN = '\033[92m'
     WARNING = '\033[93m'
     FAIL = '\033[91m'
-    ENDC = '\033[0m'
+    ENDC = '\033[00m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
@@ -22,13 +25,14 @@ def getClock(start, last_result, ser, tree, clockCycles, trigTime, trigFired):
 	end = time.time()
 	ser.write(bytearray([16]))
 	result = ser.read(8)
+	result = bytearray(result)
 	counter = result[6] << 48 | result[5] << 40 | result[4] << 32 | result[3] << 24 | result[2] << 16 | result[1] << 8 | result[0]
 	trigger = result[7]
-	print(bcolors.OKBLUE,"Clock Counter: ", counter,bcolors.ENDC, \
-		bcolors.OKBLUE, "Trigger Fired: ", trigger, bcolors.ENDC, \
-		bcolors.OKGREEN, "Time:", end-start, bcolors.ENDC, \
-		bcolors.OKCYAN, "Clock Cycles:", (end-start)/(50e6), bcolors.ENDC, \
-		bcolors.FAIL, "Diff:", counter-last_result-(end-start)*50e6, bcolors.ENDC)
+	print(Fore.RED + "Clock Counter: "+ str(counter) + \
+		Fore.BLUE + " Trigger Fired: "+ str(trigger) + \
+		Fore.GREEN + " Time: "+ str(end-start) + \
+		Fore.CYAN + " Clock Cycles: " + str((end-start)/(50e6)) + \
+		Fore.MAGENTA + " Diff: " + str(counter-last_result-(end-start)*50e6) + Style.RESET_ALL)
 	start = end
 	last_result = counter
 	clockCycles[0] = counter
@@ -45,8 +49,9 @@ def runClock():
 		end = time.time()
 		ser.write(bytearray([16]))
 		result = ser.read(8)
+		print(result)
 		counter = result[6] << 48 | result[5] << 40 | result[4] << 32 | result[3] << 24 | result[2] << 16 | result[1] << 8 | result[0]
-		#print(result[7] << 56 | result[6] << 48 | result[5] << 40 | result[4] << 32 | result[3] << 24 | result[2] << 16 | result[1] << 8 | result[0])
+		print(result[7] << 56 | result[6] << 48 | result[5] << 40 | result[4] << 32 | result[3] << 24 | result[2] << 16 | result[1] << 8 | result[0])
 		trigger = result[7]
 		print(bcolors.OKBLUE,"Clock Counter: ", counter,bcolors.ENDC, \
 			bcolors.OKBLUE, "Trigger Fired: ", trigger, bcolors.ENDC, \
@@ -88,12 +93,12 @@ counter = 0
 while run:
 	start, last_result = getClock(start, last_result, ser, myTree, clockCycles, trigTime, trigger)
 	counter += 1
-	if counter > 100: run = False
-	if counter == 50: 
-		print(bcolors.FAIL, "RESETTING CLOCK!!!!", bcolors.ENDC)
+	if counter > 1000: run = False
+	if counter == 500: 
+		print("RESETTING CLOCK!!!!")
 		ser.write(bytearray([17]))
 		fw = ser.read(1)
-		print("got fw version", fw)
+		print("got fw version" + str(bytearray(fw)))
 		#time.sleep(5)
 myTree.Write()
 myfile.Close()

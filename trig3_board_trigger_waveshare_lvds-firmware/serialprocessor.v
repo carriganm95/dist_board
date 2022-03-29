@@ -3,7 +3,7 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 	phasecounterselect,phaseupdown,phasestep,scanclk, clkswitch,
 	histos, resethist, activeclock,
 	setseed, seed, prescale, dorolling, dead_time,
-	io_top_extra, triggermask, triggernumber, clockCounter, triggerFired, resetClock
+	io_top_extra, triggermask, triggernumber, clockCounter, triggerFired, resetClock, resetOut
 	);
 	
 	input clk;
@@ -16,7 +16,7 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 	output reg[7:0] readdata;//first byte we got
 	output reg enable_outputs=0;//set low to enable outputs
 	reg[7:0] extradata[10];//to store command extra data, like arguemnts (up to 10 bytes)
-	localparam READ=0, SOLVING=1, WRITE1=3, WRITE2=4, READMORE=5, PLLCLOCK=6, CLKSWITCH=7, RESETHIST=8, RESETCLOCK=9;
+	localparam READ=0, SOLVING=1, WRITE1=3, WRITE2=4, READMORE=5, PLLCLOCK=6, CLKSWITCH=7, RESETHIST=8, RESETCLOCK=9, RESETOUT=10;
 	reg[7:0] state=READ;
 	reg[7:0] bytesread, byteswanted;
 	
@@ -29,19 +29,22 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 	output reg clkswitch=0; // No matter what, inclk0 is the default clock
 		
 	reg[7:0] ioCount, ioCountToSend;
-	reg[7:0] data[32]; // for writing out data in WRITE1,2
+	reg[7:0] data[64]; // for writing out data in WRITE1,2
 	
 	output reg[7:0] coincidence_time=20; // number of ticks to buffer inputs for (sets the coincidence time)
 	output reg[7:0] dead_time=50; // number of ticks to be dead for after firing
 	output reg[7:0] histostosend=0; // the board from which to get histos
 	output reg[63:0] triggermask=64'hffffffffffffffff; // start with all bits unmasked
 	output reg[7:0] triggernumber=8'd2; // Trigger to use //Antoine
+	//input reg[55:0] clockCounter[8]; // Counter for number of triggers fired (mcarrigan)
+	//input reg[7:0] triggerFired[8]; // Trigger most recently fired by board (mcarrigan)
 	input reg[55:0] clockCounter; // Counter for number of triggers fired (mcarrigan)
-	input reg[7:0] triggerFired; // Trigger most recently fired by board (mcarrigan)
+	input reg[7:0] triggerFired;
 	
 	input reg[31:0] histos[8];
 	output reg resethist;
 	output reg resetClock;
+	output reg resetOut;
 	input activeclock;
 	reg[7:0] i;
 	
@@ -60,6 +63,7 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
       resethist=0;
 		setseed=0;
 		resetClock=0;
+		resetOut=0;
 		if (rxReady) begin
 			readdata = rxData;
          state = SOLVING;
@@ -188,11 +192,15 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 		else if (readdata==16) begin // read out number of clock cycles since start	
 			ioCountToSend = 8;
 			i=0; while (i<8) begin
-				if (i < 7) data[i]=clockCounter[8*i +:8]; // selects 8 bits starting at bit 8*i%32
-				else data[i]=triggerFired[8*(i-7) +:8];
+				//if (i%8 < 7) data[i]=clockCounter[i/8][8*i%56 +:8]; // selects 8 bits 
+				if (i%8 < 7) data[i]=clockCounter[8*i%56 +:8]; // selects 8 bits 
+				//data[i]=histos[i/4][8*i%32 +:8]; // selects 8 bits starting at bit 8*i%32
+				//else data[i]=triggerFired[i/8][0 +:8];
+				else data[i]=triggerFired[0 +:8];
 				i=i+1;
 			end
-			state=WRITE1;
+			state=RESETOUT;
+			//state=WRITE1;
 		end
 		else if (readdata==17) begin // reset clock counter
 			//byteswanted=1; if (bytesread<byteswanted) state=READMORE;
@@ -235,10 +243,16 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 		state=WRITE1;
 	end
 	
+	RESETOUT: begin //to reset trigger and clock output arrays
+	    resetOut=1;
+		 state=WRITE1;
+   end
+	
 	//just writng out some data bytes over serial
 	WRITE1: begin
 		resethist=0;
 		resetClock=0;
+		resetOut=0;
 		if (!txBusy) begin
 			txData = data[ioCount];
          txStart = 1;
