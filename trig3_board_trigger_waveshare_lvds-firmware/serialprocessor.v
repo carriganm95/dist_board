@@ -3,7 +3,7 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 	phasecounterselect,phaseupdown,phasestep,scanclk, clkswitch,
 	histos, resethist, activeclock,
 	setseed, seed, prescale, dorolling, dead_time,
-	io_top_extra, triggermask, triggernumber, clockCounter, triggerFired, resetClock, resetOut
+	io_top_extra, triggermask, triggernumber, clockCounter, triggerFired, resetClock, resetOut, syncClock, startTime
 	);
 	
 	input clk;
@@ -14,9 +14,9 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 	output reg txStart;
 	output reg[7:0] txData;
 	output reg[7:0] readdata;//first byte we got
-	output reg enable_outputs=0;//set low to enable outputs
+	output reg enable_outputs=1;//set low to enable outputs
 	reg[7:0] extradata[10];//to store command extra data, like arguemnts (up to 10 bytes)
-	localparam READ=0, SOLVING=1, WRITE1=3, WRITE2=4, READMORE=5, PLLCLOCK=6, CLKSWITCH=7, RESETHIST=8, RESETCLOCK=9, RESETOUT=10;
+	localparam READ=0, SOLVING=1, WRITE1=3, WRITE2=4, READMORE=5, PLLCLOCK=6, CLKSWITCH=7, RESETHIST=8, RESETCLOCK=9, RESETOUT=10, SYNCCLOCK=11;
 	reg[7:0] state=READ;
 	reg[7:0] bytesread, byteswanted;
 	
@@ -35,15 +35,17 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 	output reg[7:0] dead_time=50; // number of ticks to be dead for after firing
 	output reg[7:0] histostosend=0; // the board from which to get histos
 	output reg[63:0] triggermask=64'hffffffffffffffff; // start with all bits unmasked
-	output reg[7:0] triggernumber=8'd2; // Trigger to use //Antoine
+	output reg[7:0] triggernumber=8'b00000000; // Trigger to use //Antoine
 	input reg[55:0] clockCounter[8]; // Counter for number of triggers fired (mcarrigan)
 	input reg[7:0] triggerFired[8]; // Trigger most recently fired by board (mcarrigan)
+	input reg[55:0] startTime;
 
 	
 	input reg[31:0] histos[8];
 	output reg resethist;
 	output reg resetClock;
 	output reg resetOut;
+	output reg syncClock;
 	input activeclock;
 	reg[7:0] i;
 	
@@ -63,6 +65,7 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 		setseed=0;
 		resetClock=0;
 		resetOut=0;
+		syncClock=0;
 		if (rxReady) begin
 			readdata = rxData;
          state = SOLVING;
@@ -199,14 +202,16 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 			//state=WRITE1;
 		end
 		else if (readdata==17) begin // reset clock counter
-			//byteswanted=1; if (bytesread<byteswanted) state=READMORE;
-			//else begin
 			ioCountToSend = 1;
-				//data[0]=7; //this is the firmware version
-				//state=WRITE1;
-				//if(extradata[0]>0) resetClock = 1;
 			state=RESETCLOCK;
-			//end
+		end
+		else if (readdata==18) begin //sync clocks
+			ioCountToSend = 7;
+			i=0; while (i<7) begin
+				data[i]=startTime[8*i +:8];
+				i=i+1;
+			end
+			state=WRITE1;
 		end
 		else state=READ; // if we got some other command, just ignore it		    
 	end
@@ -244,11 +249,17 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 		 state=WRITE1;
    end
 	
+	SYNCCLOCK: begin //to sync trigger board and caen clocks
+	    syncClock=1;
+		 state=WRITE1;
+	end
+	
 	//just writng out some data bytes over serial
 	WRITE1: begin
 		resethist=0;
 		resetClock=0;
 		resetOut=0;
+		syncClock=0;
 		if (!txBusy) begin
 			txData = data[ioCount];
          txStart = 1;

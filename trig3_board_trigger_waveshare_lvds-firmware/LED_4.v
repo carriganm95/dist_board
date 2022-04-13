@@ -16,7 +16,9 @@ module LED_4(
 	output reg[7:0] triggerFired[8],
 	input resetClock,
 	input resetOut,
-	input triggerMask
+	input triggerMask,
+	input syncClock,
+	output reg[55:0] startTimeOut
 	);
 
 reg[7:0] i;
@@ -48,6 +50,13 @@ reg isFiring=0;
 reg[2:0] triggerCounter=0; //counter for how many triggers are stored in memory
 reg trigSet[8];
 reg triggerMask2;
+reg syncClock2;
+reg[55:0] startTime=0;
+reg[2:0] hitsInRow=0;
+reg goodTrig[8];
+reg[2:0] firstTrig;
+reg firstTrigFired=0;
+reg[55:0] lastClockFired;
 
 always@(posedge clk_adc) begin
 	triggeruse <= triggernumber;
@@ -58,26 +67,25 @@ always@(posedge clk_adc) begin
 	histostosend2<=histostosend;
 	prescale2<=prescale;
 	triggerMask2<=triggerMask;
+	syncClock2<=syncClock;
+	startTimeOut<=startTime;
 	//clockCounter<=clocksFired;
 	//triggerFired<=lastTrigFired;
 	//lastTrigFired <= ;
 	isFiring <= 0;
+	hitsInRow<=0;
+	
+	
 	i=0; while (i<64) begin
 		if (triggermask[i]) coaxinreg[i] <= ~coax_in[i]; // inputs are inverted (so that unconnected inputs are 0), then read into registers and buffered
 		else coaxinreg[i] <= 0; // masked out inputs are set to 0 regardless of input
 		if (i<8) begin
 		    histosout[i]<=histos[i][histostosend2]; // histo output
-			 if (triedtofire[i]>0 && trigSet[i]==0) begin
+			 /*if (triedtofire[i]>0 && trigSet[i]==0 && triggerMask2==0) begin
 				lastTrigFired[triggerCounter][i] <= 1'b1;
 				trigSet[i]<=1;
 			 end
-			 if (triedtofire[i]==0) trigSet[i]<=0; //reset to allow triggerFired to output this trigger again
-
-			 //if(i%2) lastTrigFired[triggerCounter][i] <= 1'b1;
-			 //else lastTrigFired[triggerCounter][i] <= 1'b0;
-
-			 //triggerFired[i]<=lastTrigFired[i];
-			 //clockCounter[i]<= 11111111 //clocksFired[i];
+			 if (triedtofire[i]==0) trigSet[i]<=0; //reset to allow triggerFired to output this trigger again*/
 		end
 		if (i<16) begin // for output stuff
 			coax_out[i] <= Tout[i]>0; // outputs fire while Tout is high
@@ -88,13 +96,15 @@ always@(posedge clk_adc) begin
 		end
 		i=i+1;
 	end
-	if(lastTrigFired[triggerCounter]>0 && triggerMask2==0) begin
+	/*if(lastTrigFired[triggerCounter]>0 && !syncClock2) begin
 	    triggerFired[triggerCounter] <= lastTrigFired[triggerCounter];
 		 clockCounter[triggerCounter] <= counter;
 	    triggerCounter<=triggerCounter+1;
-   end
+   end*/
 	
-	if(resetOut2) begin
+	if(coaxinreg[14] > 0) startTime<=counter;
+	
+	if(resetOut2 || resetClock2) begin
 		i=0; while (i<8) begin
 			lastTrigFired[i]<=0;
 			clockCounter[i]<=0;
@@ -107,8 +117,14 @@ always@(posedge clk_adc) begin
 	// see how many "groups" (a set of two bars) are active in each "row" of 4 groups (for projective triggers)
 	// we ask for them to be >2 so that they will disappear before the calculated "vetos" will be gone
 	i=0; while (i<16) begin
-	   if (i==3) Nin[i] <= (Tin[4*i]>2) + (Tin[4*i+1]>2) + (Tin[4*i+2]>2); //special case to make sure Tin[15] is left for busy mcarrigan
-		else Nin[i] <= (Tin[4*i]>2) + (Tin[4*i+1]>2) + (Tin[4*i+2]>2) + (Tin[4*i+3]>2);
+	   if (i==3) begin
+			Nin[i] <= (Tin[4*i]>2) + (Tin[4*i+1]>2); //special case to make sure Tin[15] is left for busy and Tin[14] is left for run signal mcarrigan
+			if( (Tin[4*i]>2) + (Tin[4*i+1]>2) > hitsInRow) hitsInRow <= (Tin[4*i]>2) + (Tin[4*i+1]>2);
+		end
+		else begin
+			Nin[i] <= (Tin[4*i]>2) + (Tin[4*i+1]>2) + (Tin[4*i+2]>2) + (Tin[4*i+3]>2);
+			if ((Tin[4*i]>2) + (Tin[4*i+1]>2) + (Tin[4*i+2]>2) + (Tin[4*i+3]>2) > hitsInRow) hitsInRow <= (Tin[4*i]>2) + (Tin[4*i+1]>2) + (Tin[4*i+2]>2) + (Tin[4*i+3]>2);
+		end
 		if (i<4) Nactivetemp[i] <= Nin[4*i]+Nin[4*i+1]+Nin[4*i+2]+Nin[4*i+3]; // pipelined for timing closure
 		if (i<4) Nactiverowstemp[i] <= (Nin[4*i]>0)+(Nin[4*i+1]>0)+(Nin[4*i+2]>0)+(Nin[4*i+3]>0); // pipelined for timing closure
 		i=i+1;
@@ -117,6 +133,7 @@ always@(posedge clk_adc) begin
 	Nactiverows <= Nactiverowstemp[0]+Nactiverowstemp[1]+Nactiverowstemp[2]+Nactiverowstemp[3]; // pipelined for timing closure
 	//Note that it's important that we use "<=" here, since these will be updated at the _end_ of this always block and then ready to use in the _next_ clock cycle
 	//The "vetos" in each trigger below will be calculated in _this_ clock cycle and so should be present _earlier_
+	
 	
 	//Implement signal trigger - Antoine
 	i=0; while (i<8) begin // Antoine
@@ -130,52 +147,108 @@ always@(posedge clk_adc) begin
 		i=i+1;
 	end
 	
-	// fire the outputs (0 and 1) if there are >1 input groups active
-	if (triggernumber[1]>0 && triedtofire[0]==0 && isFiring==0 && coaxinreg[15] > 0 && (Nactive>1) ) begin
-		if (pass_prescale) begin
-			i=0; while (i<16) begin
-				if (i<3) Tout[i] <= 16; // fire outputs for this long; changed output from 0,1 to 8 mcarrigan
-				i=i+1;
+	//Start Checking the 8 triggers
+	if(isFiring == 0 && coaxinreg[15] > 0) begin
+	
+		// fire the outputs if there are >1 input groups active
+		if (triggernumber[0]>0 && triedtofire[0]==0 && (Nactive>0)) begin
+			if (pass_prescale) begin
+				if(isFiring == 0) begin
+					i=0; while (i<16) begin
+						if (i<16) Tout[i] <= 16; // fire outputs for this long; changed output from 0,1 to 8 mcarrigan
+						i=i+1;
+					end
+				end
+				triedtofire[0] <= dead_time; // will stay dead for this many clk ticks
+				isFiring<=1;
+				//goodTrig[0] <= 1;
+				//if(goodTrig[0]==0) lastTrigFired[triggerCounter][0] <= 1'b1;
 			end
-			//lastTrigFired <= 3;
-			triedtofire[0] <= dead_time; // will stay dead for this many clk ticks
 		end
+		
+				// fire the outputs if there are >1 input groups active
+		/*if (triggernumber[1]>0 && triedtofire[1]==0 && (Nactive>1) ) begin
+			if (pass_prescale) begin
+				if(isFiring == 0) begin
+					i=0; while (i<16) begin
+						if (i<16) Tout[i] <= 16; // fire outputs for this long; changed output from 0,1 to 8 mcarrigan
+						i=i+1;
+					end
+				end
+				triedtofire[1] <= dead_time; // will stay dead for this many clk ticks
+				isFiring<=1;
+				goodTrig[1] <= 1;
+				if(goodTrig[1]==0) lastTrigFired[triggerCounter][1] <= 1'b1;
+			end
+		end
+		
+		if (triggernumber[2]>0 && triedtofire[2]==0 && (Nactive>2) ) begin
+			if (pass_prescale) begin
+				if(isFiring == 0) begin
+					i=0; while (i<16) begin
+						if (i<16) Tout[i] <= 16; // fire outputs for this long; changed output from 0,1 to 8 mcarrigan
+						i=i+1;
+					end
+				end
+				triedtofire[2] <= dead_time; // will stay dead for this many clk ticks
+				isFiring<=1;
+				goodTrig[2] <= 1;
+				if(goodTrig[2]==0) lastTrigFired[triggerCounter][2] <= 1'b1;
+			end
+		end
+		
+		if (triggernumber[3]>0 && triedtofire[3]==0 && (Nactive>3) ) begin
+			if (pass_prescale) begin
+				if(isFiring == 0) begin
+					i=0; while (i<16) begin
+						if (i<16) Tout[i] <= 16; // fire outputs for this long; changed output from 0,1 to 8 mcarrigan
+						i=i+1;
+					end
+				end
+				triedtofire[3] <= dead_time; // will stay dead for this many clk ticks
+				isFiring<=1;
+				goodTrig[3] <= 1;
+				if(goodTrig[3]==0) lastTrigFired[triggerCounter][3] <= 1'b1;
+			end
+		end*/
+		
 	end
 	
-	// fire the outputs (2 and 3) if there are >1 input groups active in any row
-	if (triggernumber[3]>0 && triedtofire[1]==0 && isFiring==0 && (Nin[0]>1||Nin[1]>1||Nin[2]>1||Nin[3]>1||Nin[4]>1||Nin[5]>1||Nin[6]>1||Nin[7]>1||Nin[8]>1||Nin[9]>1||Nin[10]>1||Nin[11]>1||Nin[12]>1||Nin[13]>1||Nin[14]>1||Nin[15]>1) ) begin
-		if (pass_prescale) begin
-			i=0; while (i<16) begin
-				if (i==8) Tout[i] <= 16; // fire outputs for this long; changed output from 2,3 to 8 mcarrigan
-				i=i+1;
+		// fire the outputs if there are >1 input groups active in any row
+		/*if (triggernumber[1]>0 && triedtofire[1]==0 && (Nin[0]>3||Nin[1]>3||Nin[2]>3||Nin[3]>3||Nin[4]>3||Nin[5]>3||Nin[6]>3||Nin[7]>3||Nin[8]>3||Nin[9]>3||Nin[10]>3||Nin[11]>3||Nin[12]>3||Nin[13]>3||Nin[14]>3||Nin[15]>3) ) begin
+			if (pass_prescale) begin
+				if(isFiring==0) begin
+					i=0; while (i<16) begin
+						if (i<16) Tout[i] <= 16; // fire outputs for this long; changed output from 2,3 to 8 mcarrigan
+						i=i+1;
+					end
+				end
+				triedtofire[1] <= dead_time; // will stay dead for this many clk ticks
+				isFiring<=1;
 			end
-			//lastTrigFired <= 3;
-			triedtofire[1] <= dead_time; // will stay dead for this many clk ticks
 		end
-	end
+	end*/
 	
-	// fire the outputs (4 and 5) if there are >2 input groups active in any row
-	if (triggernumber[3]>0 && triedtofire[2]==0 && isFiring==0 && (Nin[0]>2||Nin[1]>2||Nin[2]>2||Nin[3]>2||Nin[4]>2||Nin[5]>2||Nin[6]>2||Nin[7]>2||Nin[8]>2||Nin[9]>2||Nin[10]>2||Nin[11]>2||Nin[12]>2||Nin[13]>2||Nin[14]>2||Nin[15]>2) ) begin
+	// fire the outputs if there are >2 input groups active in any row
+	/*if (triggernumber[2]>0 && triedtofire[2]==0 && (Nin[0]>2||Nin[1]>2||Nin[2]>2||Nin[3]>2||Nin[4]>2||Nin[5]>2||Nin[6]>2||Nin[7]>2||Nin[8]>2||Nin[9]>2||Nin[10]>2||Nin[11]>2||Nin[12]>2||Nin[13]>2||Nin[14]>2||Nin[15]>2) ) begin
 		if (pass_prescale) begin
 			i=0; while (i<16) begin
 				//if (i==4 || i==5) Tout[i] <= 16; // fire outputs for this long
-				if(i==5) Tout[i] <= 16;
+				if(i<16) Tout[i] <= 16;
 				i=i+1;
 			end
 			triedtofire[2] <= dead_time; // will stay dead for this many clk ticks
-			//lastTrigFired <= 3;
 		end
 	end
 	
-	// fire the outputs (6 and 7) if there are >2 input groups active in any row, and just 1 row with any input groups active
-	if (triggernumber[3]>0 && triedtofire[3]==0 && isFiring==0 && (Nin[0]>2||Nin[1]>2||Nin[2]>2||Nin[3]>2||Nin[4]>2||Nin[5]>2||Nin[6]>2||Nin[7]>2||Nin[8]>2||Nin[9]>2||Nin[10]>2||Nin[11]>2||Nin[12]>2||Nin[13]>2||Nin[14]>2||Nin[15]>2) 
+	// fire the outputs if there are >2 input groups active in any row, and just 1 row with any input groups active
+	if (triggernumber[3]>0 && triedtofire[3]==0 && (Nin[0]>2||Nin[1]>2||Nin[2]>2||Nin[3]>2||Nin[4]>2||Nin[5]>2||Nin[6]>2||Nin[7]>2||Nin[8]>2||Nin[9]>2||Nin[10]>2||Nin[11]>2||Nin[12]>2||Nin[13]>2||Nin[14]>2||Nin[15]>2) 
 								 && (Nactiverows<2) ) begin
 		if (pass_prescale) begin
 			i=0; while (i<16) begin
-				if (i==6 || i==7) Tout[i] <= 16; // fire outputs for this long
+				if (i<16) Tout[i] <= 16; // fire outputs for this long
 				i=i+1;
 			end
-			//lastTrigFired <= 3;
 			triedtofire[3] <= dead_time; // will stay dead for this many clk ticks
 		end
 	end
@@ -183,67 +256,52 @@ always@(posedge clk_adc) begin
 	// fire the output (8) if there are >0 input groups active (good for testing inputs)
 	// added busy veto Tin[15] mcarrigan
 	// replace Tin[15] by coaxinreg for more acccurate veto + add trigger number //Antoine
-	if ( triggernumber[2] && triedtofire[4]==0 && isFiring==0 && coaxinreg[15] > 0 && (Nactive>1) ) begin
+	if ( triggernumber[4]>0 && triedtofire[4]==0 && (Nactive>2) ) begin
 		if (pass_prescale) begin
 			i=0; while (i<16) begin
-				if (i==4) Tout[i] <= 16; // fire outputs for this long, output to 4 coax outputs
+				if (i<16) Tout[i] <= 16; // fire outputs for this long, output to 4 coax outputs
 				i=i+1;
 			end
-			//lastTrigFired <= 2;
 			triedtofire[4] <= dead_time; // will stay dead for this many clk ticks
-			led[1] <= 1'b0; // turn on the LED
+			//led[1] <= 1'b0; // turn on the LED
 		end
 	end	
-	if ( triggernumber[2]>0 && triedtofire[5]==0 && isFiring==0 && coaxinreg[15] > 0 && (Nactivetemp[0]>1) ) begin
+	if ( triggernumber[5]>0 && triedtofire[5]==0 && (Nactivetemp[0]>1) ) begin
 		if (pass_prescale) begin
 			i=0; while (i<16) begin
-				if (i==4) Tout[i] <= 16; // fire outputs for this long, output to 4 coax outputs
+				if (i<16) Tout[i] <= 16; // fire outputs for this long, output to 4 coax outputs
 				i=i+1;
 			end
-			//lastTrigFired <= 2;
 			triedtofire[5] <= dead_time; // will stay dead for this many clk ticks
-			led[1] <= 1'b0; // turn on the LED
+			//led[1] <= 1'b0; // turn on the LED
 		end
-	end
-		//testing trigger number //Antoine
-	if (triggernumber[1]>0 && triedtofire[6]==0 && isFiring==0 && coaxinreg[15] > 0 && (Nactive>0) ) begin
-		if (pass_prescale) begin
-			i=0; while (i<16) begin
-				if (i>4) Tout[i] <= 16; // fire outputs for this long, output to 4 coax outputs
-				i=i+1;
-			end
-			//lastTrigFired <= 1;
-			triedtofire[10] <= dead_time; // will stay dead for this many clk ticks
-			led[1] <= 1'b0; // turn on the LED
-		end		
 	end
 	
 	//Implementing coincidence triggers - Antoine
-	if ( triggernumber[4]>0 && triedtofire[7]==0 && isFiring==0 && coaxinreg[15] > 0 && (Nin_coin[0]>3||Nin_coin[1]>3||Nin_coin[2]>3||Nin_coin[3]>3||Nin_coin[4]>3||Nin_coin[5]>3||Nin_coin[6]>3||Nin_coin[7]>3)) begin // Antoine - 4 layers coincidence 
+	if ( triggernumber[6]>0 && triedtofire[6]==0 && (Nin_coin[0]>3||Nin_coin[1]>3||Nin_coin[2]>3||Nin_coin[3]>3||Nin_coin[4]>3||Nin_coin[5]>3||Nin_coin[6]>3||Nin_coin[7]>3)) begin // Antoine - 4 layers coincidence 
 		if (pass_prescale) begin
 			i=0; while (i<16) begin
-				if (i>3) Tout[i] <= 16; // fire outputs for this long, output to 4 coax outputs
+				if (i<16) Tout[i] <= 16; // fire outputs for this long, output to 4 coax outputs
 				i=i+1;
 			end
-			//lastTrigFired <= 4;
+			triedtofire[6] <= dead_time; // will stay dead for this many clk ticks
+			//led[1] <= 1'b0; // turn on the LED
+		end
+	end	
+
+	if ( triggernumber[7]>0 && triedtofire[7]==0 && (Nin_coin_3[0]>0||Nin_coin_3[1]>0||Nin_coin_3[2]>0||Nin_coin_3[3]>0||Nin_coin_3[4]>0||Nin_coin_3[5]>0||Nin_coin_3[6]>0||Nin_coin_3[7]>0)) begin // Antoine - 3 layers coincidence 
+		if (pass_prescale) begin
+			i=0; while (i<16) begin
+				if (i<16) Tout[i] <= 16; // fire outputs for this long, output to 4 coax outputs
+				i=i+1;
+			end
 			triedtofire[7] <= dead_time; // will stay dead for this many clk ticks
-			led[1] <= 1'b0; // turn on the LED
+			//led[1] <= 1'b0; // turn on the LED
 		end
-	end	
+	end
+	end*/
 
-	if ( triggernumber[5]>0 && triedtofire[8]==0 && isFiring==0 && coaxinreg[15] > 0  && (Nin_coin_3[0]>0||Nin_coin_3[1]>0||Nin_coin_3[2]>0||Nin_coin_3[3]>0||Nin_coin_3[4]>0||Nin_coin_3[5]>0||Nin_coin_3[6]>0||Nin_coin_3[7]>0)) begin // Antoine - 3 layers coincidence 
-		if (pass_prescale) begin
-			i=0; while (i<16) begin
-				if (i>3) Tout[i] <= 16; // fire outputs for this long, output to 4 coax outputs
-				i=i+1;
-			end
-			//lastTrigFired <= 5;
-			triedtofire[8] <= dead_time; // will stay dead for this many clk ticks
-			led[1] <= 1'b0; // turn on the LED
-		end
-	end	
-
-	if ( triggernumber[6]>0 && triedtofire[9]==0 && isFiring==0 && coaxinreg[15] > 0) begin // mcarrigan, check clock in 
+	/*if ( triggernumber[6]>0 && triedtofire[9]==0 && isFiring==0 && coaxinreg[15] > 0) begin // mcarrigan, check clock in 
 		//if (pass_prescale) begin
 		//clockCounter<= clockCounter + 1;
 		i=0; while (i<16) begin
@@ -253,7 +311,19 @@ always@(posedge clk_adc) begin
 		//lastTrigFired <= 6;
 		triedtofire[9] <= dead_time; // will stay dead for this many clk ticks
 		led[1] <= 1'b0; // turn on the LED
-	end
+	end*/
+	
+	//testing trigger number //Antoine
+	/*if (triggernumber[1]>0 && triedtofire[6]==0 && isFiring==0 && coaxinreg[15] > 0 && (Nactive>3) ) begin
+		if (pass_prescale) begin
+			i=0; while (i<16) begin
+				if (i<16) Tout[i] <= 16; // fire outputs for this long, output to 4 coax outputs
+				i=i+1;
+			end
+			triedtofire[6] <= dead_time; // will stay dead for this many clk ticks
+			//led[1] <= 1'b0; // turn on the LED
+		end		
+	end*/
 	
 	//rolling trigger (about 119.21 Hz)
 	if (autocounter[20]) begin
@@ -266,18 +336,37 @@ always@(posedge clk_adc) begin
 	end
 	
 	if (led[0]==1'b1) led[1]<=1'b1; // turn it off when the other led toggles, so we can see it turn back on
+
+	//lastTrigFired[triggerCounter][0] <= (triedtofire[0]>0 && trigSet[0]==0 &&triggerMask2) ? 1'b1 : 1'b0; 
+	//lastTrigFired[triggerCounter][1] <= (triedtofire[1]>0 && trigSet[1]==0 &&triggerMask2) ? 1'b1 : 1'b0; 
 	
-	//i=0; while (i<8) begin
-	    //if (triedtofire[i] > 0) lastTrigFired[i] <= 1;
-		 //if (triedtofire[i] == 0) lastTrigFired[i] <= 0;
-		 //lastTrigFired[i] = i%2;
-		 //i=i+1;
-   //end
-	
-	//if(resetClock2) begin
-	//	lastTrigFired <= 0;
-	//end
-	
+	//lastTrigFired[triggerCounter] <= goodTrig[7] << 7 | goodTrig[6] << 6 | goodTrig[5] << 5 | goodTrig[4] << 4 | goodTrig[3] << 3 | goodTrig[2] << 2 | goodTrig[1] << 1 | goodTrig[0];
+
+   i=0; while (i<8) begin	
+		if (triedtofire[i]>0 && trigSet[i]==0 && triggerMask2==0) begin
+		//if (triedtofire[i]>0 && triggerMask2==0) begin
+			lastTrigFired[triggerCounter][i] <= 1'b1;
+			trigSet[i]<=1;
+		end
+		if (triedtofire[i]==0) trigSet[i]<=0; //reset to allow triggerFired to output this trigger again
+		if(firstTrigFired==0) begin
+			firstTrig<=i;
+			firstTrigFired<=1;
+			lastClockFired<=counter;
+		end
+		i=i+1;
+	end
+		
+	if(lastTrigFired[triggerCounter]>0 && !syncClock2 && firstTrigFired==1 && triedtofire[firstTrig]==0) begin
+	    triggerFired[triggerCounter] <= lastTrigFired[triggerCounter];
+		 clockCounter[triggerCounter] <= lastClockFired;
+		triggerCounter<=triggerCounter+1;
+		firstTrigFired<=0;
+		i=0; while (i<8) begin
+			goodTrig[i]<=0;
+			i=i+1;
+		end
+   end
 end
 
 // triggers (from other boards) are read in and monitored
