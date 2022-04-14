@@ -161,13 +161,13 @@ always@(posedge clk_adc) begin
 				end
 				triedtofire[0] <= dead_time; // will stay dead for this many clk ticks
 				isFiring<=1;
-				//goodTrig[0] <= 1;
-				//if(goodTrig[0]==0) lastTrigFired[triggerCounter][0] <= 1'b1;
+				goodTrig[0] <= 1;
+				if(goodTrig[0]==0) lastTrigFired[triggerCounter][0] <= 1'b1;
 			end
 		end
 		
 				// fire the outputs if there are >1 input groups active
-		/*if (triggernumber[1]>0 && triedtofire[1]==0 && (Nactive>1) ) begin
+		if (triggernumber[1]>0 && triedtofire[1]==0 && (Nactive>1) ) begin
 			if (pass_prescale) begin
 				if(isFiring == 0) begin
 					i=0; while (i<16) begin
@@ -210,7 +210,7 @@ always@(posedge clk_adc) begin
 				goodTrig[3] <= 1;
 				if(goodTrig[3]==0) lastTrigFired[triggerCounter][3] <= 1'b1;
 			end
-		end*/
+		end
 		
 	end
 	
@@ -345,7 +345,7 @@ always@(posedge clk_adc) begin
    i=0; while (i<8) begin	
 		if (triedtofire[i]>0 && trigSet[i]==0 && triggerMask2==0) begin
 		//if (triedtofire[i]>0 && triggerMask2==0) begin
-			lastTrigFired[triggerCounter][i] <= 1'b1;
+			//lastTrigFired[triggerCounter][i] <= 1'b1;
 			trigSet[i]<=1;
 		end
 		if (triedtofire[i]==0) trigSet[i]<=0; //reset to allow triggerFired to output this trigger again
@@ -358,8 +358,8 @@ always@(posedge clk_adc) begin
 	end
 		
 	if(lastTrigFired[triggerCounter]>0 && !syncClock2 && firstTrigFired==1 && triedtofire[firstTrig]==0) begin
-	    triggerFired[triggerCounter] <= lastTrigFired[triggerCounter];
-		 clockCounter[triggerCounter] <= lastClockFired;
+	   triggerFired[triggerCounter] <= lastTrigFired[triggerCounter];
+		clockCounter[triggerCounter] <= lastClockFired;
 		triggerCounter<=triggerCounter+1;
 		firstTrigFired<=0;
 		i=0; while (i<8) begin
