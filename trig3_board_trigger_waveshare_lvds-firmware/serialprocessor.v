@@ -184,10 +184,8 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 		end
 		else if (readdata==15) begin // select a trigger from the menu
 			byteswanted=1; if (bytesread<byteswanted) state=READMORE;
-			else begin			ioCountToSend = 1;
-			data[0]=7; // this is the firmware version
-			state=WRITE1;				
-				if (extradata[0]>0) triggernumber=extradata[0];
+			else begin							
+				triggernumber=extradata[0];
 				state=READ;
 			end
 		end
