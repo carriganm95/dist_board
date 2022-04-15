@@ -69,9 +69,6 @@ always@(posedge clk_adc) begin
 	triggerMask2<=triggerMask;
 	syncClock2<=syncClock;
 	startTimeOut<=startTime;
-	//clockCounter<=clocksFired;
-	//triggerFired<=lastTrigFired;
-	//lastTrigFired <= ;
 	isFiring <= 0;
 	hitsInRow<=0;
 	
@@ -81,11 +78,6 @@ always@(posedge clk_adc) begin
 		else coaxinreg[i] <= 0; // masked out inputs are set to 0 regardless of input
 		if (i<8) begin
 		    histosout[i]<=histos[i][histostosend2]; // histo output
-			 /*if (triedtofire[i]>0 && trigSet[i]==0 && triggerMask2==0) begin
-				lastTrigFired[triggerCounter][i] <= 1'b1;
-				trigSet[i]<=1;
-			 end
-			 if (triedtofire[i]==0) trigSet[i]<=0; //reset to allow triggerFired to output this trigger again*/
 		end
 		if (i<16) begin // for output stuff
 			coax_out[i] <= Tout[i]>0; // outputs fire while Tout is high
@@ -96,13 +88,8 @@ always@(posedge clk_adc) begin
 		end
 		i=i+1;
 	end
-	/*if(lastTrigFired[triggerCounter]>0 && !syncClock2) begin
-	    triggerFired[triggerCounter] <= lastTrigFired[triggerCounter];
-		 clockCounter[triggerCounter] <= counter;
-	    triggerCounter<=triggerCounter+1;
-   end*/
 	
-	if(coaxinreg[14] > 0) startTime<=counter;
+	if(coaxinreg[62] > 0) startTime<=counter;
 	
 	if(resetOut2 || resetClock2) begin
 		i=0; while (i<8) begin
@@ -117,7 +104,7 @@ always@(posedge clk_adc) begin
 	// see how many "groups" (a set of two bars) are active in each "row" of 4 groups (for projective triggers)
 	// we ask for them to be >2 so that they will disappear before the calculated "vetos" will be gone
 	i=0; while (i<16) begin
-	   if (i==3) begin
+	   if (i==15) begin
 			Nin[i] <= (Tin[4*i]>2) + (Tin[4*i+1]>2); //special case to make sure Tin[15] is left for busy and Tin[14] is left for run signal mcarrigan
 			if( (Tin[4*i]>2) + (Tin[4*i+1]>2) > hitsInRow) hitsInRow <= (Tin[4*i]>2) + (Tin[4*i+1]>2);
 		end
@@ -148,7 +135,7 @@ always@(posedge clk_adc) begin
 	end
 	
 	//Start Checking the 8 triggers
-	if(isFiring == 0 && coaxinreg[15] > 0) begin
+	if(isFiring == 0 && coaxinreg[63] > 0) begin
 	
 		// fire the outputs if there are >1 input groups active
 		if (triggernumber[0]>0 && triedtofire[0]==0 && (Nactive>0)) begin
@@ -337,14 +324,8 @@ always@(posedge clk_adc) begin
 	
 	if (led[0]==1'b1) led[1]<=1'b1; // turn it off when the other led toggles, so we can see it turn back on
 
-	//lastTrigFired[triggerCounter][0] <= (triedtofire[0]>0 && trigSet[0]==0 &&triggerMask2) ? 1'b1 : 1'b0; 
-	//lastTrigFired[triggerCounter][1] <= (triedtofire[1]>0 && trigSet[1]==0 &&triggerMask2) ? 1'b1 : 1'b0; 
-	
-	//lastTrigFired[triggerCounter] <= goodTrig[7] << 7 | goodTrig[6] << 6 | goodTrig[5] << 5 | goodTrig[4] << 4 | goodTrig[3] << 3 | goodTrig[2] << 2 | goodTrig[1] << 1 | goodTrig[0];
-
    i=0; while (i<8) begin	
 		if (triedtofire[i]>0 && trigSet[i]==0 && triggerMask2==0) begin
-		//if (triedtofire[i]>0 && triggerMask2==0) begin
 			//lastTrigFired[triggerCounter][i] <= 1'b1;
 			trigSet[i]<=1;
 		end
