@@ -42,6 +42,7 @@ reg[4:0] Nactiverows;//max of 16
 reg[2:0] Nactiverowstemp[4];// max of 4
 reg[6:0] Nlayer[4];
 reg[6:0] Nbars;
+reg[2:0] NLayersHit=0;
 reg[7:0] triggeruse;
 reg[7:0] lastTrigFired=0; //when a trigger fires set this equal to the trigger number
 reg[55:0] clocksFired[8]; //array to hold the clocks fired
@@ -54,7 +55,10 @@ reg trigSet[8];
 reg triggerMask2;
 reg syncClock2;
 reg[55:0] startTime=0;
-reg[2:0] hitsInRow=0;
+reg[2:0] hitsInRow[8];
+reg[2:0] maxHitsInRow=0;
+reg adjacentLayersHit=0;
+reg separatedLayersHit=0;
 reg goodTrig[8];
 reg[2:0] firstTrig;
 reg firstTrigFired=0;
@@ -71,9 +75,6 @@ always@(posedge clk_adc) begin
 	triggerMask2<=triggerMask;
 	syncClock2<=syncClock;
 	startTimeOut<=startTime;
-	//isFiring <= 0;
-	hitsInRow<=0;
-	
 	
 	i=0; while (i<64) begin
 		if (triggermask[i]) coaxinreg[i] <= ~coax_in[i]; // inputs are inverted (so that unconnected inputs are 0), then read into registers and buffered
@@ -112,10 +113,22 @@ always@(posedge clk_adc) begin
 		 i=i+1;
 	end
 	Nbars <= Nlayer[0] + Nlayer[1] + Nlayer[2] + Nlayer[3];
+	NLayersHit <= (Nlayer[0]>0) + (Nlayer[1]>0) + (Nlayer[2]>0) + (Nlayer[3]>0);
    
-	i=0; while (i<16) begin
+	i=0; while (i<8) begin
+	    hitsInRow[i] <= (Tin[i]>2) + (Tin[i+8]>2) + (Tin[i+16]>2) + (Tin[i+24]>2);
+	    i=i+1;
+	end
+	
+	maxHitsInRow <= (hitsInRow[0]>2) || (hitsInRow[1]>2) || (hitsInRow[2]>2) || (hitsInRow[3]>2) || (hitsInRow[4]>2) || (hitsInRow[5]>2) ||
+							(hitsInRow[6]>2) || (hitsInRow[7]>2);
+							
+	separatedLayersHit <= ((Nlayer[0]>0) && (Nlayer[2]>0)) || ((Nlayer[1]>0) && (Nlayer[3]>0)); // || ((Nlayer[0]>0) && (Nlayer[3]>0))
+	adjacentLayersHit <= ((Nlayer[0]>0) && (Nlayer[1]>0)) || ((Nlayer[1]>0) && (Nlayer[2]>0)) || ((Nlayer[2]>0) && (Nlayer[3]>0));
+								
+	/*i=0; while (i<16) begin
 	   if (i==15) begin
-			Nin[i] <= (Tin[4*i]>2) + (Tin[4*i+1]>2); //special case to make sure Tin[15] is left for busy and Tin[14] is left for run signal mcarrigan
+			Nin[i] <= (Tin[4*i]>2) + (Tin[4*i+1]>2); //special case to make sure Tin[63] is left for busy and Tin[62] is left for run signal mcarrigan
 			if( (Tin[4*i]>2) + (Tin[4*i+1]>2) > hitsInRow) hitsInRow <= (Tin[4*i]>2) + (Tin[4*i+1]>2);
 		end
 		else begin
@@ -127,7 +140,7 @@ always@(posedge clk_adc) begin
 		i=i+1;
 	end
 	Nactive <= Nactivetemp[0]+Nactivetemp[1]+Nactivetemp[2]+Nactivetemp[3]; // pipelined for timing closure
-	Nactiverows <= Nactiverowstemp[0]+Nactiverowstemp[1]+Nactiverowstemp[2]+Nactiverowstemp[3]; // pipelined for timing closure
+	Nactiverows <= Nactiverowstemp[0]+Nactiverowstemp[1]+Nactiverowstemp[2]+Nactiverowstemp[3]; // pipelined for timing closure*/
 	//Note that it's important that we use "<=" here, since these will be updated at the _end_ of this always block and then ready to use in the _next_ clock cycle
 	//The "vetos" in each trigger below will be calculated in _this_ clock cycle and so should be present _earlier_
 	
@@ -147,8 +160,21 @@ always@(posedge clk_adc) begin
 	//Start Checking the 8 triggers
 	//if(isFiring == 0 && coaxinreg[63] > 0) begin
 	
-		// fire the outputs if there are >1 input groups active
-		if (triggernumber[0]>0 && triedtofire[0]==0 && (Nbars>0) && coaxinreg[63]>0) begin
+   ////////////////////////////////////	
+	//List of Bar detector trigger bits
+	// 1. 4LayersHit - at least one hit group in all four layers
+	// 2. 3InRow - at least one hit group, int line, in each of three layers
+	// 3. 2SeparatedLayers - at least one hit group in each of two non-adjacent layers
+	// 4. 2AdjacentLayers - at least one hit group in each of two adjacent layers
+	// 5. NLayersHit - at least one hit group in each of N layers, where N can be changed
+	// 6. External - an external trigger signal from pulse generator, slab detector, or LED flashing system
+	// 7. gtNHits - at least N hit groups anywhere in the detector, where N can be changed
+	// 8. internalTrigger - any of the digitizers probides a trigger signal using internal logic
+	/////////////////////////////////////
+
+	
+		// Trigger Bit 1: 4LayersHit
+		if (triggernumber[0]>0 && triedtofire[0]==0 && (NLayersHit>3) && coaxinreg[63]>0) begin
 			if (pass_prescale) begin
 				if(isFiring == 0) begin
 					i=0; while (i<16) begin
@@ -157,14 +183,13 @@ always@(posedge clk_adc) begin
 					end
 				end
 				triedtofire[0] <= dead_time; // will stay dead for this many clk ticks
-				//isFiring[0]<=1'b1;
 				if(goodTrig[0]==0) lastTrigFired[0] <= 1'b1;
 				goodTrig[0] <= 1;
 			end
 		end
 		
-				// fire the outputs if there are >1 input groups active
-		if (triggernumber[1]>0 && triedtofire[1]==0 && (Nbars>0) && coaxinreg[63]>0) begin
+		//Trigger Bit 2: 3InRow
+		if (triggernumber[1]>0 && triedtofire[1]==0 && (maxHitsInRow>0) && coaxinreg[63]>0) begin
 			if (pass_prescale) begin
 				if(isFiring == 0) begin
 					i=0; while (i<16) begin
@@ -173,13 +198,13 @@ always@(posedge clk_adc) begin
 					end
 				end
 				triedtofire[1] <= dead_time; // will stay dead for this many clk ticks
-				//isFiringTrig[1]<=1'b1;
 				if(goodTrig[1]==0) lastTrigFired[1] <= 1'b1;
 				goodTrig[1] <= 1;
 			end
 		end
 		
-		if (triggernumber[2]>0 && triedtofire[2]==0 && (Nbars>1) && coaxinreg[63]>0) begin
+		//Trigger Bit 3: 2SeparatedLayers
+		if (triggernumber[2]>0 && triedtofire[2]==0 && (separatedLayersHit>0) && coaxinreg[63]>0) begin
 			if (pass_prescale) begin
 				if(isFiring == 0) begin
 					i=0; while (i<16) begin
@@ -188,13 +213,13 @@ always@(posedge clk_adc) begin
 					end
 				end
 				triedtofire[2] <= dead_time; // will stay dead for this many clk ticks
-				//isFiring[2]<=1'b1;
 				if(goodTrig[2]==0) lastTrigFired[2] <= 1'b1;
 				goodTrig[2] <= 1;
 			end
 		end
-		
-		if (triggernumber[3]>0 && triedtofire[3]==0 && (Nbars>2) && coaxinreg[63]>0) begin
+
+		//Trigger Bit 4: 2AdjacentLayers
+		if (triggernumber[3]>0 && triedtofire[3]==0 && (adjacentLayersHit>0) && coaxinreg[63]>0) begin
 			if (pass_prescale) begin
 				if(isFiring == 0) begin
 					i=0; while (i<16) begin
@@ -203,9 +228,23 @@ always@(posedge clk_adc) begin
 					end
 				end
 				triedtofire[3] <= dead_time; // will stay dead for this many clk ticks
-				//isFiring[3]<=1'b1;
 				if(goodTrig[3]==0) lastTrigFired[3] <= 1'b1;
 				goodTrig[3] <= 1;
+			end
+		end
+		
+		// Trigger Bit 5: NLayersHit
+		if (triggernumber[4]>0 && triedtofire[4]==0 && (NLayersHit>0) && coaxinreg[63]>0) begin
+			if (pass_prescale) begin
+				if(isFiring == 0) begin
+					i=0; while (i<16) begin
+						if (i<16) Tout[i] <= 16; // fire outputs for this long; changed output from 0,1 to 8 mcarrigan
+						i=i+1;
+					end
+				end
+				triedtofire[4] <= dead_time; // will stay dead for this many clk ticks
+				if(goodTrig[4]==0) lastTrigFired[4] <= 1'b1;
+				goodTrig[4] <= 1;
 			end
 		end
 		
