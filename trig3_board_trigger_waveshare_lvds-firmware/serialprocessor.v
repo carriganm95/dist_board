@@ -3,7 +3,9 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 	phasecounterselect,phaseupdown,phasestep,scanclk, clkswitch,
 	histos, resethist, activeclock,
 	setseed, seed, prescale, dorolling, dead_time,
-	io_top_extra, triggermask, triggernumber, clockCounter, triggerFired, resetClock, resetOut, syncClock, startTime
+	io_top_extra, triggermask, triggernumber, clockCounter, 
+	triggerFired, resetClock, resetOut, syncClock, startTime,
+	nLayerThreshold, nHitThreshold
 	);
 	
 	input clk;
@@ -36,6 +38,8 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 	output reg[7:0] histostosend=0; // the board from which to get histos
 	output reg[63:0] triggermask=64'hffffffffffffffff; // start with all bits unmasked
 	output reg[7:0] triggernumber=8'b00000000; // Trigger to use //Antoine
+	output reg[7:0] nLayerThreshold;
+	output reg[7:0] nHitThreshold;
 	input reg[55:0] clockCounter[8]; // Counter for number of triggers fired (mcarrigan)
 	input reg[7:0] triggerFired[8]; // Trigger most recently fired by board (mcarrigan)
 	input reg[55:0] startTime;
@@ -210,6 +214,20 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 				i=i+1;
 			end
 			state=WRITE1;
+		end
+		else if (readdata==19) begin // get N layers hit threshold
+		    byteswanted=1; if (bytesread<byteswanted) state=READMORE;
+			 else begin
+			     nLayerThreshold = extradata[0];
+				  state=READ;
+		    end
+		end
+		else if (readdata==20) begin // get N hits threshold
+				    byteswanted=1; if (bytesread<byteswanted) state=READMORE;
+			 else begin
+			     nHitThreshold = extradata[0];
+				  state=READ;
+		    end
 		end
 		else state=READ; // if we got some other command, just ignore it		    
 	end

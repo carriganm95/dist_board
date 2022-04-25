@@ -18,7 +18,9 @@ module LED_4(
 	input resetOut,
 	input triggerMask,
 	input syncClock,
-	output reg[55:0] startTimeOut
+	output reg[55:0] startTimeOut,
+	input [7:0] nLayerThreshold,
+	input [7:0] nHitThreshold
 	);
 
 reg[7:0] i;
@@ -63,6 +65,8 @@ reg goodTrig[8];
 reg[2:0] firstTrig;
 reg firstTrigFired=0;
 reg[55:0] lastClockFired;
+reg[7:0] nLayerThreshold2;
+reg[7:0] nHitThreshold2;
 
 always@(posedge clk_adc) begin
 	triggeruse <= triggernumber;
@@ -75,6 +79,8 @@ always@(posedge clk_adc) begin
 	triggerMask2<=triggerMask;
 	syncClock2<=syncClock;
 	startTimeOut<=startTime;
+	nLayerThreshold2<=nLayerThreshold;
+	nHitThreshold2<=nHitThreshold;
 	
 	i=0; while (i<64) begin
 		if (triggermask[i]) coaxinreg[i] <= ~coax_in[i]; // inputs are inverted (so that unconnected inputs are 0), then read into registers and buffered
@@ -234,7 +240,7 @@ always@(posedge clk_adc) begin
 		end
 		
 		// Trigger Bit 5: NLayersHit
-		if (triggernumber[4]>0 && triedtofire[4]==0 && (NLayersHit>0) && coaxinreg[63]>0) begin
+		if (triggernumber[4]>0 && triedtofire[4]==0 && (NLayersHit>=nLayerThreshold2) && coaxinreg[63]>0) begin
 			if (pass_prescale) begin
 				if(isFiring == 0) begin
 					i=0; while (i<16) begin
@@ -245,6 +251,51 @@ always@(posedge clk_adc) begin
 				triedtofire[4] <= dead_time; // will stay dead for this many clk ticks
 				if(goodTrig[4]==0) lastTrigFired[4] <= 1'b1;
 				goodTrig[4] <= 1;
+			end
+		end
+		
+				// Trigger Bit 6: External
+		if (triggernumber[5]>0 && triedtofire[5]==0 && (Nbars>0) && coaxinreg[63]>0) begin
+			if (pass_prescale) begin
+				if(isFiring == 0) begin
+					i=0; while (i<16) begin
+						if (i<16) Tout[i] <= 16; // fire outputs for this long; changed output from 0,1 to 8 mcarrigan
+						i=i+1;
+					end
+				end
+				triedtofire[5] <= dead_time; // will stay dead for this many clk ticks
+				if(goodTrig[5]==0) lastTrigFired[5] <= 1'b1;
+				goodTrig[5] <= 1;
+			end
+		end
+		
+				// Trigger Bit 7: gtNHits
+		if (triggernumber[6]>0 && triedtofire[6]==0 && (Nbars>nHitThreshold2) && coaxinreg[63]>0) begin
+			if (pass_prescale) begin
+				if(isFiring == 0) begin
+					i=0; while (i<16) begin
+						if (i<16) Tout[i] <= 16; // fire outputs for this long; changed output from 0,1 to 8 mcarrigan
+						i=i+1;
+					end
+				end
+				triedtofire[6] <= dead_time; // will stay dead for this many clk ticks
+				if(goodTrig[6]==0) lastTrigFired[6] <= 1'b1;
+				goodTrig[6] <= 1;
+			end
+		end
+		
+				// Trigger Bit 8: Internal
+		if (triggernumber[7]>0 && triedtofire[7]==0 && (Nbars>0) && coaxinreg[63]>0) begin
+			if (pass_prescale) begin
+				if(isFiring == 0) begin
+					i=0; while (i<16) begin
+						if (i<16) Tout[i] <= 16; // fire outputs for this long; changed output from 0,1 to 8 mcarrigan
+						i=i+1;
+					end
+				end
+				triedtofire[7] <= dead_time; // will stay dead for this many clk ticks
+				if(goodTrig[7]==0) lastTrigFired[7] <= 1'b1;
+				goodTrig[7] <= 1;
 			end
 		end
 		
