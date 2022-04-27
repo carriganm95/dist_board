@@ -201,7 +201,6 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 				i=i+1;
 			end
 			state=RESETOUT;
-			//state=WRITE1;
 		end
 		else if (readdata==17) begin // reset clock counter
 			ioCountToSend = 1;
