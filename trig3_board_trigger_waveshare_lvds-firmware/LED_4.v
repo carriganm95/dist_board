@@ -9,11 +9,10 @@ module LED_4(
 	input clk_locked,	output ext_trig_out,
 	input reg[31:0] randnum, input reg[31:0] prescale, input dorolling,
 	input [7:0] dead_time,
-	input [16-1:0] coax_in_extra, output [16-1:0] coax_out_extra, input [14-1:0] io_extra, output [28-1:0] ep4ce10_io_extra,
-	//coax_in_extra are additional sma inputs
-	//coax_out_extra are additional sma outputs
-	//io_extra are pins next to FPGA (8/16 used for clock)
-	//ep4ce10_io_extra are pins below FPGA (29-32 are duplicated)
+	input [16-1:0] coax_in_extra, //coax_in_extra are additional sma inputs
+	output [16-1:0] coax_out_extra, //coax_out_extra are additional sma outputs
+	input [14-1:0] io_extra, //io_extra are pins next to FPGA (8/16 used for clock)
+	output [28-1:0] ep4ce10_io_extra, //ep4ce10_io_extra are pins below FPGA (29-32 are duplicated)
 	input [63:0] triggermask,
 	input [7:0] triggernumber,
 	output reg[55:0] clockCounter[8],
@@ -31,7 +30,7 @@ reg[7:0] i;
 reg[7:0] j;
 reg[31:0] histos[8][64]; // for monitoring, 8 ints for each channel
 reg [64-1:0] coaxinreg; // for buffering input triggers
-reg pass_prescale;
+reg pass_prescale[8];
 reg[7:0] triedtofire[16]; // for output trigger deadtime
 reg[7:0] ext_trig_out_counter=0;
 reg[31:0] autocounter=0; // for a rolling trigger
@@ -73,10 +72,16 @@ reg[7:0] nLayerThreshold2;
 reg[7:0] nHitThreshold2;
 reg[55:0] counter2;
 reg[7:0] dead_time2;
+reg[2:0] caen_trigs=0;
+reg[2:0] caen_board_trigs[6]; //buffer for caen board trigs
+reg[3:0] external_trigs_buffer[2];
+reg[3:0] external_trigs;
+reg[31:0] randnum_buffer[8];
+reg[6:0] counter125=0; //counter for 125MHz clock
 
 always@(posedge clk_adc) begin
 	triggernumber2 <= triggernumber;
-	pass_prescale <= (randnum<=prescale2);
+	//pass_prescale <= (randnum<=prescale2);
 	resethist2<=resethist;
 	resetClock2<=resetClock;
 	resetOut2<=resetOut;
@@ -88,7 +93,25 @@ always@(posedge clk_adc) begin
 	nLayerThreshold2<=nLayerThreshold;
 	nHitThreshold2<=nHitThreshold;
 	dead_time2<=dead_time;
-	//counter2<=counter;
+		
+	//set random number buffer every microsecond
+	if(counter125==125) begin
+		randnum_buffer[0] <= randnum;
+		randnum_buffer[1] <= randnum_buffer[0]; 
+		randnum_buffer[2] <= randnum_buffer[1]; 
+		randnum_buffer[3] <= randnum_buffer[2]; 
+		randnum_buffer[4] <= randnum_buffer[3]; 
+		randnum_buffer[5] <= randnum_buffer[4]; 
+		randnum_buffer[6] <= randnum_buffer[5]; 
+		randnum_buffer[7] <= randnum_buffer[6]; 
+		counter125<=0;
+	end
+	else counter125<=counter125+1;
+	
+	i=0; while (i<8) begin
+		pass_prescale[i] <= (randnum_buffer[i]<=prescale2);
+		i=i+1;
+	end
 	
 	i=0; while (i<64) begin
 		if (triggermask[i]) coaxinreg[i] <= ~coax_in[i]; // inputs are inverted (so that unconnected inputs are 0), then read into registers and buffered
@@ -117,7 +140,6 @@ always@(posedge clk_adc) begin
 	
 	if(resetOut2 || resetClock2) begin
 		i=0; while (i<8) begin
-			//lastTrigFired[i]<=0;
 			clockCounter[i]<=0;
 			triggerFired[i]<=0;
 			i=i+1;
@@ -128,54 +150,27 @@ always@(posedge clk_adc) begin
 	
 	// see how many "groups" (a set of two bars) are active in each "row" of 4 groups (for projective triggers)
 	// we ask for them to be >2 so that they will disappear before the calculated "vetos" will be gone
-	i=0; while (i<4) begin
-	    Nlayer[i] <= (Tin[i*8]>2) + (Tin[i*8+1]>2) + (Tin[i*8+2]>2) + (Tin[i*8+3]>2) + (Tin[i*8+4]>2) + (Tin[i*8+5]>2) + (Tin[i*8+6]>2) + (Tin[i*8+7]>2);
+	i=0; while (i<8) begin
+	    if(i<2) external_trigs_buffer[i] <= (TinEx[6+i*5]>2) + (TinEx[7+i*5]>2) + (TinEx[8+i*5]>2) + (TinEx[9+i*5]>2) + (TinEx[10+i*5]>2);
+	    if(i<4) Nlayer[i] <= (Tin[i*8]>2) + (Tin[i*8+1]>2) + (Tin[i*8+2]>2) + (Tin[i*8+3]>2) + (Tin[i*8+4]>2) + (Tin[i*8+5]>2) + (Tin[i*8+6]>2) + (Tin[i*8+7]>2);
+		 if(i<6) caen_board_trigs[i] <= (TinEx[i]>2);
+		 hitsInRow[i] <= (Tin[i]>2) + (Tin[i+8]>2) + (Tin[i+16]>2) + (Tin[i+24]>2);
 		 i=i+1;
 	end
+	
 	Nbars <= Nlayer[0] + Nlayer[1] + Nlayer[2] + Nlayer[3];
 	NLayersHit <= (Nlayer[0]>0) + (Nlayer[1]>0) + (Nlayer[2]>0) + (Nlayer[3]>0);
-   
-	i=0; while (i<8) begin
-	    hitsInRow[i] <= (Tin[i]>2) + (Tin[i+8]>2) + (Tin[i+16]>2) + (Tin[i+24]>2);
-	    i=i+1;
-	end
 	
 	maxHitsInRow <= (hitsInRow[0]>2) || (hitsInRow[1]>2) || (hitsInRow[2]>2) || (hitsInRow[3]>2) || (hitsInRow[4]>2) || (hitsInRow[5]>2) ||
 							(hitsInRow[6]>2) || (hitsInRow[7]>2);
 							
-	separatedLayersHit <= ((Nlayer[0]>0) && (Nlayer[2]>0)) || ((Nlayer[1]>0) && (Nlayer[3]>0)); // || ((Nlayer[0]>0) && (Nlayer[3]>0))
+	separatedLayersHit <= ((Nlayer[0]>0) && (Nlayer[2]>0)) || ((Nlayer[1]>0) && (Nlayer[3]>0)); 
 	adjacentLayersHit <= ((Nlayer[0]>0) && (Nlayer[1]>0)) || ((Nlayer[1]>0) && (Nlayer[2]>0)) || ((Nlayer[2]>0) && (Nlayer[3]>0));
-								
-	/*i=0; while (i<16) begin
-	   if (i==15) begin
-			Nin[i] <= (Tin[4*i]>2) + (Tin[4*i+1]>2); //special case to make sure Tin[63] is left for busy and Tin[62] is left for run signal mcarrigan
-			if( (Tin[4*i]>2) + (Tin[4*i+1]>2) > hitsInRow) hitsInRow <= (Tin[4*i]>2) + (Tin[4*i+1]>2);
-		end
-		else begin
-			Nin[i] <= (Tin[4*i]>2) + (Tin[4*i+1]>2) + (Tin[4*i+2]>2) + (Tin[4*i+3]>2);
-			if ((Tin[4*i]>2) + (Tin[4*i+1]>2) + (Tin[4*i+2]>2) + (Tin[4*i+3]>2) > hitsInRow) hitsInRow <= (Tin[4*i]>2) + (Tin[4*i+1]>2) + (Tin[4*i+2]>2) + (Tin[4*i+3]>2);
-		end
-		if (i<4) Nactivetemp[i] <= Nin[4*i]+Nin[4*i+1]+Nin[4*i+2]+Nin[4*i+3]; // pipelined for timing closure
-		if (i<4) Nactiverowstemp[i] <= (Nin[4*i]>0)+(Nin[4*i+1]>0)+(Nin[4*i+2]>0)+(Nin[4*i+3]>0); // pipelined for timing closure
-		i=i+1;
-	end
-	Nactive <= Nactivetemp[0]+Nactivetemp[1]+Nactivetemp[2]+Nactivetemp[3]; // pipelined for timing closure
-	Nactiverows <= Nactiverowstemp[0]+Nactiverowstemp[1]+Nactiverowstemp[2]+Nactiverowstemp[3]; // pipelined for timing closure*/
-	//Note that it's important that we use "<=" here, since these will be updated at the _end_ of this always block and then ready to use in the _next_ clock cycle
-	//The "vetos" in each trigger below will be calculated in _this_ clock cycle and so should be present _earlier_
 	
+	caen_trigs <= caen_board_trigs[0] + caen_board_trigs[1] + caen_board_trigs[2] + caen_board_trigs[3] + caen_board_trigs[4]; //first 6 sma inputs are reserved for CAEN board triggers
 	
-	//Implement signal trigger - Antoine
-	i=0; while (i<8) begin // Antoine
-      Nin_coin[i] <= (Tin[i]>2)+(Tin[i+8]>2)+(Tin[i+2*8]>2)+(Tin[i+3*8]>2); // Antoine - Coincident layer if 32 first LVDS inputs are from the CAEN boards associated to the scintillator bars
-	   if (((Tin[i+3*8]==0) && (Tin[i]>2) && (Tin[i+8]>2) && (Tin[i+2*8]>2)) || ((Tin[i]==0) && (Tin[i+8]>2) && (Tin[i+2*8]>2) && (Tin[i+3*8]>2))) begin; // 3 layers coincidence
-		   Nin_coin_3[i]<=1;
-	   end
-		else begin;
-		   Nin_coin_3[i]<=0;
-      end
-		i=i+1;
-	end
+	external_trigs <= external_trigs_buffer[0] + external_trigs_buffer[1]; 
+				
 	
 	//Start Checking the 8 triggers
 	//if(isFiring == 0 && coaxinreg[63] > 0) begin
@@ -191,11 +186,11 @@ always@(posedge clk_adc) begin
 	// 7. gtNHits - at least N hit groups anywhere in the detector, where N can be changed
 	// 8. internalTrigger - any of the digitizers probides a trigger signal using internal logic
 	/////////////////////////////////////
-
 	
 		// Trigger Bit 1: 4LayersHit
 		if (triggernumber2[0]>0 && triedtofire[0]==0 && (NLayersHit>3) && coaxinreg[63]>0) begin
-			if (pass_prescale) begin
+		//if (triggernumber2[0]>0 && triedtofire[0]==0 && (Tin[1]>0) && coaxinreg[63]>0) begin
+			if (pass_prescale[0]) begin
 				if(isFiring == 0) begin
 					i=0; while (i<16) begin
 						if (i<16) Tout[i] <= 16; // fire outputs for this long; changed output from 0,1 to 8 mcarrigan
@@ -203,14 +198,15 @@ always@(posedge clk_adc) begin
 					end
 				end
 				triedtofire[0] <= dead_time2; // will stay dead for this many clk ticks
-				if(goodTrig[0]==0) lastTrigFired[0] <= 1'b1;
+				//if(goodTrig[0]==0) lastTrigFired[0] <= 1'b1;
+				lastTrigFired[0] <= 1'b1;
 				goodTrig[0] <= 1;
 			end
 		end
 		
 		//Trigger Bit 2: 3InRow
 		if (triggernumber2[1]>0 && triedtofire[1]==0 && (maxHitsInRow>0) && coaxinreg[63]>0) begin
-			if (pass_prescale) begin
+			if (pass_prescale[1]) begin
 				if(isFiring == 0) begin
 					i=0; while (i<16) begin
 						if (i<16) Tout[i] <= 16; // fire outputs for this long; changed output from 0,1 to 8 mcarrigan
@@ -225,7 +221,7 @@ always@(posedge clk_adc) begin
 		
 		//Trigger Bit 3: 2SeparatedLayers
 		if (triggernumber2[2]>0 && triedtofire[2]==0 && (separatedLayersHit>0) && coaxinreg[63]>0) begin
-			if (pass_prescale) begin
+			if (pass_prescale[2]) begin
 				if(isFiring == 0) begin
 					i=0; while (i<16) begin
 						if (i<16) Tout[i] <= 16; // fire outputs for this long; changed output from 0,1 to 8 mcarrigan
@@ -240,7 +236,7 @@ always@(posedge clk_adc) begin
 
 		//Trigger Bit 4: 2AdjacentLayers
 		if (triggernumber2[3]>0 && triedtofire[3]==0 && (adjacentLayersHit>0) && coaxinreg[63]>0) begin
-			if (pass_prescale) begin
+			if (pass_prescale[3]) begin
 				if(isFiring == 0) begin
 					i=0; while (i<16) begin
 						if (i<16) Tout[i] <= 16; // fire outputs for this long; changed output from 0,1 to 8 mcarrigan
@@ -255,7 +251,7 @@ always@(posedge clk_adc) begin
 		
 		// Trigger Bit 5: NLayersHit
 		if (triggernumber2[4]>0 && triedtofire[4]==0 && (NLayersHit>=nLayerThreshold2) && coaxinreg[63]>0) begin
-			if (pass_prescale) begin
+			if (pass_prescale[4]) begin
 				if(isFiring == 0) begin
 					i=0; while (i<16) begin
 						if (i<16) Tout[i] <= 16; // fire outputs for this long; changed output from 0,1 to 8 mcarrigan
@@ -269,8 +265,8 @@ always@(posedge clk_adc) begin
 		end
 		
 				// Trigger Bit 6: External
-		if (triggernumber2[5]>0 && triedtofire[5]==0 && (Nbars>0) && coaxinreg[63]>0) begin
-			if (pass_prescale) begin
+		if (triggernumber2[5]>0 && triedtofire[5]==0 && (external_trigs>0) && coaxinreg[63]>0) begin
+			if (pass_prescale[5]) begin
 				if(isFiring == 0) begin
 					i=0; while (i<16) begin
 						if (i<16) Tout[i] <= 16; // fire outputs for this long; changed output from 0,1 to 8 mcarrigan
@@ -285,7 +281,7 @@ always@(posedge clk_adc) begin
 		
 				// Trigger Bit 7: gtNHits
 		if (triggernumber2[6]>0 && triedtofire[6]==0 && (Nbars>nHitThreshold2) && coaxinreg[63]>0) begin
-			if (pass_prescale) begin
+			if (pass_prescale[6]) begin
 				if(isFiring == 0) begin
 					i=0; while (i<16) begin
 						if (i<16) Tout[i] <= 16; // fire outputs for this long; changed output from 0,1 to 8 mcarrigan
@@ -299,8 +295,8 @@ always@(posedge clk_adc) begin
 		end
 		
 				// Trigger Bit 8: Internal
-		if (triggernumber2[7]>0 && triedtofire[7]==0 && (Nbars>0) && coaxinreg[63]>0) begin
-			if (pass_prescale) begin
+		if (triggernumber2[7]>0 && triedtofire[7]==0 && (caen_trigs>0) && coaxinreg[63]>0) begin
+			if (pass_prescale[7]) begin
 				if(isFiring == 0) begin
 					i=0; while (i<16) begin
 						if (i<16) Tout[i] <= 16; // fire outputs for this long; changed output from 0,1 to 8 mcarrigan
@@ -312,8 +308,30 @@ always@(posedge clk_adc) begin
 				goodTrig[7] <= 1;
 			end
 		end
-		
-	//end
+			
+		// if any trigger has fired start forming the trigger bitstring
+   i=0; while (i<8) begin	
+		if (firstTrigFired==0 && triedtofire[i]>0) begin
+			firstTrig<=i;
+			firstTrigFired<=1;
+			lastClockFired<=counter;
+			break; // added apr 28
+		end
+		i=i+1;
+	end
+	
+	// if first trigger to fire has finished dead time then add trigger bitstring to triggerFired list
+	if(lastTrigFired > 0 && !syncClock2 && !resetOut2 && firstTrigFired==1 && triedtofire[firstTrig]==0) begin
+	   triggerFired[triggerCounter] <= lastTrigFired;
+		clockCounter[triggerCounter] <= lastClockFired;
+		triggerCounter<=triggerCounter+1;
+		firstTrigFired<=0;
+		lastTrigFired <= 0;
+		i=0; while (i<8) begin
+			goodTrig[i]<=0;
+			i=i+1;
+		end
+   end
 	
 
 	//rolling trigger (about 119.21 Hz)
@@ -327,29 +345,7 @@ always@(posedge clk_adc) begin
 	end
 	
 	if (led[0]==1'b1) led[1]<=1'b1; // turn it off when the other led toggles, so we can see it turn back on
-
-	// if any trigger has fired start forming the trigger bitstring
-   i=0; while (i<8) begin	
-		if (firstTrigFired==0 && triedtofire[i]>0) begin
-			firstTrig<=i;
-			firstTrigFired<=1;
-			lastClockFired<=counter;
-		end
-		i=i+1;
-	end
 	
-	// if first trigger to fire has finished dead time then add trigger bitstring to triggerFired list
-	if(lastTrigFired > 0 && !syncClock2 && firstTrigFired==1 && triedtofire[firstTrig]==0) begin
-	   triggerFired[triggerCounter] <= lastTrigFired;
-		clockCounter[triggerCounter] <= lastClockFired;
-		triggerCounter<=triggerCounter+1;
-		firstTrigFired<=0;
-		lastTrigFired <= 0;
-		i=0; while (i<8) begin
-			goodTrig[i]<=0;
-			i=i+1;
-		end
-   end
 end
 
 // triggers (from other boards) are read in and monitored
