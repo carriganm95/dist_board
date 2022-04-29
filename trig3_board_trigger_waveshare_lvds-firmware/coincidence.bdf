@@ -822,6 +822,27 @@ refer to the applicable agreement for further details.
 		(text "nHitThreshold[7..0]" (rect 197 395 290 406)(font "Arial" ))
 		(line (pt 296 400)(pt 280 400)(line_width 3))
 	)
+	(port
+		(pt 288 128)
+		(output)
+		(text "clockCounter[0..7][55..0]" (rect 0 0 119 11)(font "Arial" ))
+		(text "clockCounter[0..7][55..0]" (rect 167 123 267 134)(font "Arial" ))
+		(line (pt 288 128)(pt 272 128)(line_width 3))
+	)
+	(port
+		(pt 288 144)
+		(output)
+		(text "triggerFired[0..7][7..0]" (rect 0 0 105 11)(font "Arial" ))
+		(text "triggerFired[0..7][7..0]" (rect 179 139 267 150)(font "Arial" ))
+		(line (pt 288 144)(pt 272 144)(line_width 3))
+	)
+	(port
+		(pt 288 160)
+		(output)
+		(text "startTimeOut[55..0]" (rect 0 0 94 11)(font "Arial" ))
+		(text "startTimeOut[55..0]" (rect 188 155 267 166)(font "Arial" ))
+		(line (pt 288 160)(pt 272 160)(line_width 3))
+	)
 	(drawing
 		(rectangle (rect 16 16 280 416))
 	)

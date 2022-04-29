@@ -347,7 +347,31 @@ always@(posedge clk_adc) begin
 	end
 	
 	if (led[0]==1'b1) led[1]<=1'b1; // turn it off when the other led toggles, so we can see it turn back on
-	
+
+   i=0; while (i<8) begin	
+		if (triedtofire[i]>0 && trigSet[i]==0 && triggerMask2==0) begin
+			//lastTrigFired[triggerCounter][i] <= 1'b1;
+			trigSet[i]<=1;
+		end
+		if (triedtofire[i]==0) trigSet[i]<=0; //reset to allow triggerFired to output this trigger again
+		if(firstTrigFired==0) begin
+			firstTrig<=i;
+			firstTrigFired<=1;
+			lastClockFired<=counter;
+		end
+		i=i+1;
+	end
+		
+	if(lastTrigFired[triggerCounter]>0 && !syncClock2 && firstTrigFired==1 && triedtofire[firstTrig]==0) begin
+	   triggerFired[triggerCounter] <= lastTrigFired[triggerCounter];
+		clockCounter[triggerCounter] <= lastClockFired;
+		triggerCounter<=triggerCounter+1;
+		firstTrigFired<=0;
+		i=0; while (i<8) begin
+			goodTrig[i]<=0;
+			i=i+1;
+		end
+   end
 end
 
 // triggers (from other boards) are read in and monitored
