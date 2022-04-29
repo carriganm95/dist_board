@@ -30,6 +30,7 @@ reg[7:0] i;
 reg[7:0] j;
 reg[31:0] histos[8][64]; // for monitoring, 8 ints for each channel
 reg [64-1:0] coaxinreg; // for buffering input triggers
+reg [64-1:0] coaxinregEx; //buffering for sma inputs
 reg pass_prescale[8];
 reg[7:0] triedtofire[16]; // for output trigger deadtime
 reg[7:0] ext_trig_out_counter=0;
@@ -120,6 +121,7 @@ always@(posedge clk_adc) begin
 		    histosout[i]<=histos[i][histostosend2]; // histo output
 		end
 		if (i<16) begin // for output stuff
+		   coaxinregEx[i] <= coax_in_extra[i];
 			coax_out[i] <= Tout[i]>0; // outputs fire while Tout is high
 			//coax_out[i] <= coaxinreg[i]; // passthrough		
 			if (Tout[i]>0) Tout[i] <= Tout[i]-1; // count down how long the triggers have been active
@@ -153,7 +155,7 @@ always@(posedge clk_adc) begin
 	i=0; while (i<8) begin
 	    if(i<2) external_trigs_buffer[i] <= (TinEx[6+i*5]>2) + (TinEx[7+i*5]>2) + (TinEx[8+i*5]>2) + (TinEx[9+i*5]>2) + (TinEx[10+i*5]>2);
 	    if(i<4) Nlayer[i] <= (Tin[i*8]>2) + (Tin[i*8+1]>2) + (Tin[i*8+2]>2) + (Tin[i*8+3]>2) + (Tin[i*8+4]>2) + (Tin[i*8+5]>2) + (Tin[i*8+6]>2) + (Tin[i*8+7]>2);
-		 if(i<6) caen_board_trigs[i] <= (TinEx[i]>2);
+		 if(i<6) caen_board_trigs[i] <= TinEx[i];
 		 hitsInRow[i] <= (Tin[i]>2) + (Tin[i+8]>2) + (Tin[i+16]>2) + (Tin[i+24]>2);
 		 i=i+1;
 	end
@@ -167,7 +169,7 @@ always@(posedge clk_adc) begin
 	separatedLayersHit <= ((Nlayer[0]>0) && (Nlayer[2]>0)) || ((Nlayer[1]>0) && (Nlayer[3]>0)); 
 	adjacentLayersHit <= ((Nlayer[0]>0) && (Nlayer[1]>0)) || ((Nlayer[1]>0) && (Nlayer[2]>0)) || ((Nlayer[2]>0) && (Nlayer[3]>0));
 	
-	caen_trigs <= caen_board_trigs[0] + caen_board_trigs[1] + caen_board_trigs[2] + caen_board_trigs[3] + caen_board_trigs[4]; //first 6 sma inputs are reserved for CAEN board triggers
+	caen_trigs <= caen_board_trigs[0];// + caen_board_trigs[1] + caen_board_trigs[2] + caen_board_trigs[3] + caen_board_trigs[4]; //first 6 sma inputs are reserved for CAEN board triggers
 	
 	external_trigs <= external_trigs_buffer[0] + external_trigs_buffer[1]; 
 				
@@ -365,7 +367,7 @@ always @(posedge clk_adc) begin
 		
 		//buffer inputs from 16 extra sma inputs
 		if(j<16) begin
-			if(coax_in_extra[j]) begin
+			if(coaxinregEx[j]) begin
 				TinEx[j] <= coincidence_time;
 			end
 			else begin
