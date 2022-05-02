@@ -40,32 +40,23 @@ reg [7:0] histostosend2; // to pass timing, since it's sent from the slow clk
 reg [31:0] prescale2[8]; // to pass timing, since it's sent from the slow clk
 reg[5:0] Tout[16]; // for output triggers
 reg[2:0] Nin[64/4]; // number of groups active in each row of 4 groups
-reg[4:0] Nin_coin[8]; // number of coincidence for each channel
-reg[2:0] Nin_coin_3[8];
-reg[6:0] Nactive;//max of 16*4=64
-reg[4:0] Nactivetemp[4];//max of 4*4=16
-reg[4:0] Nactiverows;//max of 16
-reg[2:0] Nactiverowstemp[4];// max of 4
-reg[6:0] Nlayer[4];
-reg[6:0] Nbars;
-reg[2:0] NLayersHit=0;
+reg[6:0] Nlayer[4]; // number of active groups in a layer
+reg[6:0] Nbars; // number of total active groups
+reg[2:0] NLayersHit=0; // total number of layers hit
 reg[7:0] triggernumber2;
 reg[7:0] lastTrigFired=0; //when a trigger fires set this equal to the trigger number
 reg[55:0] clocksFired[8]; //array to hold the clocks fired
-reg[7:0] triggerTemp=0;
 reg resetClock2;
 reg resetOut2;
 reg isFiring=0;
 reg[2:0] triggerCounter=0; //counter for how many triggers are stored in memory
-reg trigSet[8];
 reg triggerMask2;
 reg syncClock2;
 reg[55:0] startTime=0;
-reg[2:0] hitsInRow[8];
-reg[2:0] maxHitsInRow=0;
-reg adjacentLayersHit=0;
-reg separatedLayersHit=0;
-reg goodTrig[8];
+reg[2:0] hitsInRow[8]; //number of hits in a supermodule
+reg[2:0] maxHitsInRow=0; //number of hits in row with the most hits
+reg adjacentLayersHit=0; // true if hits in adjacent layers
+reg separatedLayersHit=0; //true if hits in layers separated by 1
 reg[2:0] firstTrig;
 reg firstTrigFired=0;
 reg[55:0] lastClockFired;
@@ -73,21 +64,19 @@ reg[7:0] nLayerThreshold2;
 reg[7:0] nHitThreshold2;
 reg[55:0] counter2;
 reg[7:0] dead_time2;
-reg[2:0] caen_trigs=0;
+reg[2:0] caen_trigs=0; //number of caen boards fired
 reg[2:0] caen_board_trigs[6]; //buffer for caen board trigs
 reg[3:0] external_trigs_buffer[2];
-reg[3:0] external_trigs;
+reg[3:0] external_trigs; //number of external trigs fired
 reg[31:0] randnum_buffer[8];
 reg[6:0] counter125=0; //counter for 125MHz clock
 
 always@(posedge clk_adc) begin
 	triggernumber2 <= triggernumber;
-	//pass_prescale <= (randnum<=prescale2);
 	resethist2<=resethist;
 	resetClock2<=resetClock;
 	resetOut2<=resetOut;
 	histostosend2<=histostosend;
-	//prescale2<=prescale;
 	triggerMask2<=triggerMask;
 	syncClock2<=syncClock;
 	startTimeOut<=startTime;
@@ -129,12 +118,6 @@ always@(posedge clk_adc) begin
 			if (triedtofire[i]>0) triedtofire[i] <= triedtofire[i]-1; // count down deadtime for outputs
 		   if (triedtofire[i]>0) isFiring <=1; // don't fire any trigger within the coincidence time
 			else isFiring<=0;
-			/*if(i<8) begin
-				clockCounter[i]<=8;
-				triggerFired[i]<=8;
-			end*/
-			//clockCounter[0]<=counter;
-			//triggerFired[0]<=lastTrigFired;
 		end
 		i=i+1;
 	end
@@ -151,7 +134,6 @@ always@(posedge clk_adc) begin
 		triggerCounter<=0;
 	end
 	
-	// see how many "groups" (a set of two bars) are active in each "row" of 4 groups (for projective triggers)
 	// we ask for them to be >2 so that they will disappear before the calculated "vetos" will be gone
 	i=0; while (i<8) begin
 	    if(i<2) external_trigs_buffer[i] <= (TinEx[6+i*5]>2) + (TinEx[7+i*5]>2) + (TinEx[8+i*5]>2) + (TinEx[9+i*5]>2) + (TinEx[10+i*5]>2);
@@ -177,7 +159,6 @@ always@(posedge clk_adc) begin
 				
 	
 	//Start Checking the 8 triggers
-	//if(isFiring == 0 && coaxinreg[63] > 0) begin
 	
    ////////////////////////////////////	
 	//List of Bar detector trigger bits
@@ -193,7 +174,6 @@ always@(posedge clk_adc) begin
 	
 		// Trigger Bit 1: 4LayersHit
 		if (triggernumber2[0]>0 && triedtofire[0]==0 && (NLayersHit>3) && coaxinreg[63]>0) begin
-		//if (triggernumber2[0]>0 && triedtofire[0]==0 && (Tin[1]>0) && coaxinreg[63]>0) begin
 			if (pass_prescale[0]) begin
 				if(isFiring == 0) begin
 					i=0; while (i<16) begin
@@ -202,9 +182,7 @@ always@(posedge clk_adc) begin
 					end
 				end
 				triedtofire[0] <= dead_time2; // will stay dead for this many clk ticks
-				//if(goodTrig[0]==0) lastTrigFired[0] <= 1'b1;
 				lastTrigFired[0] <= 1'b1;
-				goodTrig[0] <= 1;
 			end
 		end
 		
@@ -218,8 +196,7 @@ always@(posedge clk_adc) begin
 					end
 				end
 				triedtofire[1] <= dead_time2; // will stay dead for this many clk ticks
-				if(goodTrig[1]==0) lastTrigFired[1] <= 1'b1;
-				goodTrig[1] <= 1;
+				lastTrigFired[1] <= 1'b1;
 			end
 		end
 		
@@ -233,8 +210,7 @@ always@(posedge clk_adc) begin
 					end
 				end
 				triedtofire[2] <= dead_time2; // will stay dead for this many clk ticks
-				if(goodTrig[2]==0) lastTrigFired[2] <= 1'b1;
-				goodTrig[2] <= 1;
+				lastTrigFired[2] <= 1'b1;
 			end
 		end
 
@@ -248,8 +224,7 @@ always@(posedge clk_adc) begin
 					end
 				end
 				triedtofire[3] <= dead_time2; // will stay dead for this many clk ticks
-				if(goodTrig[3]==0) lastTrigFired[3] <= 1'b1;
-				goodTrig[3] <= 1;
+				lastTrigFired[3] <= 1'b1;
 			end
 		end
 		
@@ -263,8 +238,7 @@ always@(posedge clk_adc) begin
 					end
 				end
 				triedtofire[4] <= dead_time2; // will stay dead for this many clk ticks
-				if(goodTrig[4]==0) lastTrigFired[4] <= 1'b1;
-				goodTrig[4] <= 1;
+				lastTrigFired[4] <= 1'b1;
 			end
 		end
 		
@@ -278,8 +252,7 @@ always@(posedge clk_adc) begin
 					end
 				end
 				triedtofire[5] <= dead_time2; // will stay dead for this many clk ticks
-				if(goodTrig[5]==0) lastTrigFired[5] <= 1'b1;
-				goodTrig[5] <= 1;
+				lastTrigFired[5] <= 1'b1;
 			end
 		end
 		
@@ -293,8 +266,7 @@ always@(posedge clk_adc) begin
 					end
 				end
 				triedtofire[6] <= dead_time2; // will stay dead for this many clk ticks
-				if(goodTrig[6]==0) lastTrigFired[6] <= 1'b1;
-				goodTrig[6] <= 1;
+				lastTrigFired[6] <= 1'b1;
 			end
 		end
 		
@@ -308,8 +280,7 @@ always@(posedge clk_adc) begin
 					end
 				end
 				triedtofire[7] <= dead_time2; // will stay dead for this many clk ticks
-				if(goodTrig[7]==0) lastTrigFired[7] <= 1'b1;
-				goodTrig[7] <= 1;
+				lastTrigFired[7] <= 1'b1;
 			end
 		end
 			
@@ -331,10 +302,6 @@ always@(posedge clk_adc) begin
 		triggerCounter<=triggerCounter+1;
 		firstTrigFired<=0;
 		lastTrigFired <= 0;
-		i=0; while (i<8) begin
-			goodTrig[i]<=0;
-			i=i+1;
-		end
    end
 	
 
