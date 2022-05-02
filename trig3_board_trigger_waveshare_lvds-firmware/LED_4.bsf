@@ -89,8 +89,8 @@ refer to the applicable agreement for further details.
 	(port
 		(pt 0 176)
 		(input)
-		(text "prescale[31..0]" (rect 0 0 56 12)(font "Arial" ))
-		(text "prescale[31..0]" (rect 21 171 77 183)(font "Arial" ))
+		(text "prescale[0..7][31..0]" (rect 0 0 76 12)(font "Arial" ))
+		(text "prescale[0..7][31..0]" (rect 21 171 97 183)(font "Arial" ))
 		(line (pt 0 176)(pt 16 176)(line_width 3))
 	)
 	(port
