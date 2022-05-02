@@ -17,7 +17,7 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 	output reg[7:0] txData;
 	output reg[7:0] readdata;//first byte we got
 	output reg enable_outputs=1;//set low to enable outputs
-	reg[7:0] extradata[10];//to store command extra data, like arguemnts (up to 10 bytes)
+	reg[7:0] extradata[32];//to store command extra data, like arguemnts (up to 10 bytes)
 	localparam READ=0, SOLVING=1, WRITE1=3, WRITE2=4, READMORE=5, PLLCLOCK=6, CLKSWITCH=7, RESETHIST=8, RESETCLOCK=9, RESETOUT=10, SYNCCLOCK=11;
 	reg[7:0] state=READ;
 	reg[7:0] bytesread, byteswanted;
@@ -55,9 +55,16 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 	
 	output reg setseed;
 	output reg[31:0] seed = 0;
-	output reg[31:0] prescale = 32'hffffffff;
+	output reg[31:0] prescale[8];// = 32'hffffffff;
 	output reg dorolling=1;
 
+	initial begin
+		i=0; while(i<8) begin
+			prescale[i] <= 32'hffffffff;
+			i=i+1;
+		end
+	end
+	
 	always @(posedge clk) begin
 	case (state)
 	READ: begin		  
@@ -136,9 +143,12 @@ module processor(clk, rxReady, rxData, txBusy, txStart, txData, readdata,
 			end
 		end
 		else if (readdata==7) begin // set prescale int
-			byteswanted=4; if (bytesread<byteswanted) state=READMORE;
+			byteswanted=32; if (bytesread<byteswanted) state=READMORE;
 			else begin
-				prescale={extradata[3],extradata[2],extradata[1],extradata[0]};
+				i=0; while(i<8) begin
+					prescale[i]={extradata[3+i*4],extradata[2+i*4],extradata[1+i*4],extradata[0+i*4]};
+					i=i+1;
+				end
 				state=READ;
 			end
 		end

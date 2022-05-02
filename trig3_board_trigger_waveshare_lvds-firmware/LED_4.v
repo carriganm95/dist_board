@@ -7,7 +7,7 @@ module LED_4(
 	input [7:0] coincidence_time, input [7:0] histostosend,
 	input clk_adc, output reg[31:0] histosout[8], input resethist, 
 	input clk_locked,	output ext_trig_out,
-	input reg[31:0] randnum, input reg[31:0] prescale, input dorolling,
+	input reg[31:0] randnum, input reg[31:0] prescale[8], input dorolling,
 	input [7:0] dead_time,
 	input [16-1:0] coax_in_extra, //coax_in_extra are additional sma inputs
 	output [16-1:0] coax_out_extra, //coax_out_extra are additional sma outputs
@@ -37,7 +37,7 @@ reg[7:0] ext_trig_out_counter=0;
 reg[31:0] autocounter=0; // for a rolling trigger
 reg resethist2; // to pass timing
 reg [7:0] histostosend2; // to pass timing, since it's sent from the slow clk
-reg [31:0] prescale2; // to pass timing, since it's sent from the slow clk
+reg [31:0] prescale2[8]; // to pass timing, since it's sent from the slow clk
 reg[5:0] Tout[16]; // for output triggers
 reg[2:0] Nin[64/4]; // number of groups active in each row of 4 groups
 reg[4:0] Nin_coin[8]; // number of coincidence for each channel
@@ -87,7 +87,7 @@ always@(posedge clk_adc) begin
 	resetClock2<=resetClock;
 	resetOut2<=resetOut;
 	histostosend2<=histostosend;
-	prescale2<=prescale;
+	//prescale2<=prescale;
 	triggerMask2<=triggerMask;
 	syncClock2<=syncClock;
 	startTimeOut<=startTime;
@@ -110,7 +110,8 @@ always@(posedge clk_adc) begin
 	else counter125<=counter125+1;
 	
 	i=0; while (i<8) begin
-		pass_prescale[i] <= (randnum_buffer[i]<=prescale2);
+		prescale2[i]<=prescale[i];
+		pass_prescale[i] <= (randnum_buffer[i]<=prescale2[i]);
 		i=i+1;
 	end
 	
@@ -155,7 +156,7 @@ always@(posedge clk_adc) begin
 	i=0; while (i<8) begin
 	    if(i<2) external_trigs_buffer[i] <= (TinEx[6+i*5]>2) + (TinEx[7+i*5]>2) + (TinEx[8+i*5]>2) + (TinEx[9+i*5]>2) + (TinEx[10+i*5]>2);
 	    if(i<4) Nlayer[i] <= (Tin[i*8]>2) + (Tin[i*8+1]>2) + (Tin[i*8+2]>2) + (Tin[i*8+3]>2) + (Tin[i*8+4]>2) + (Tin[i*8+5]>2) + (Tin[i*8+6]>2) + (Tin[i*8+7]>2);
-		 if(i<6) caen_board_trigs[i] <= TinEx[i];
+		 if(i<6) caen_board_trigs[i] <= (TinEx[i]>2);
 		 hitsInRow[i] <= (Tin[i]>2) + (Tin[i+8]>2) + (Tin[i+16]>2) + (Tin[i+24]>2);
 		 i=i+1;
 	end
@@ -169,7 +170,8 @@ always@(posedge clk_adc) begin
 	separatedLayersHit <= ((Nlayer[0]>0) && (Nlayer[2]>0)) || ((Nlayer[1]>0) && (Nlayer[3]>0)); 
 	adjacentLayersHit <= ((Nlayer[0]>0) && (Nlayer[1]>0)) || ((Nlayer[1]>0) && (Nlayer[2]>0)) || ((Nlayer[2]>0) && (Nlayer[3]>0));
 	
-	caen_trigs <= caen_board_trigs[0];// + caen_board_trigs[1] + caen_board_trigs[2] + caen_board_trigs[3] + caen_board_trigs[4]; //first 6 sma inputs are reserved for CAEN board triggers
+	//TODO: add in other caen_trigs once SMAs are soldered on
+	caen_trigs <= caen_board_trigs[0] + caen_board_trigs[1] + caen_board_trigs[2] + caen_board_trigs[3];// + caen_board_trigs[4] + caen_board_trigs[5]; //first 5/6 sma inputs are reserved for CAEN board triggers
 	
 	external_trigs <= external_trigs_buffer[0] + external_trigs_buffer[1]; 
 				
@@ -347,31 +349,6 @@ always@(posedge clk_adc) begin
 	end
 	
 	if (led[0]==1'b1) led[1]<=1'b1; // turn it off when the other led toggles, so we can see it turn back on
-
-   i=0; while (i<8) begin	
-		if (triedtofire[i]>0 && trigSet[i]==0 && triggerMask2==0) begin
-			//lastTrigFired[triggerCounter][i] <= 1'b1;
-			trigSet[i]<=1;
-		end
-		if (triedtofire[i]==0) trigSet[i]<=0; //reset to allow triggerFired to output this trigger again
-		if(firstTrigFired==0) begin
-			firstTrig<=i;
-			firstTrigFired<=1;
-			lastClockFired<=counter;
-		end
-		i=i+1;
-	end
-		
-	if(lastTrigFired[triggerCounter]>0 && !syncClock2 && firstTrigFired==1 && triedtofire[firstTrig]==0) begin
-	   triggerFired[triggerCounter] <= lastTrigFired[triggerCounter];
-		clockCounter[triggerCounter] <= lastClockFired;
-		triggerCounter<=triggerCounter+1;
-		firstTrigFired<=0;
-		i=0; while (i<8) begin
-			goodTrig[i]<=0;
-			i=i+1;
-		end
-   end
 end
 
 // triggers (from other boards) are read in and monitored
