@@ -1,7 +1,7 @@
 module LED_4(
 	input nrst,
 	input clk,
-	input clk250,
+	//input clk250,
 	output reg [3:0] led,
 	input [64-1:0] coax_in,
 	output [16-1:0] coax_out,	
