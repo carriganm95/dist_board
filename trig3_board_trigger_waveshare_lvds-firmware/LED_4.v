@@ -1,6 +1,7 @@
 module LED_4(
 	input nrst,
 	input clk,
+	input clk250,
 	output reg [3:0] led,
 	input [64-1:0] coax_in,
 	output [16-1:0] coax_out,	
@@ -57,8 +58,12 @@ reg[2:0] hitsInRow[8]; //number of hits in a supermodule
 reg[2:0] maxHitsInRow=0; //number of hits in row with the most hits
 reg adjacentLayersHit=0; // true if hits in adjacent layers
 reg separatedLayersHit=0; //true if hits in layers separated by 1
-reg[2:0] firstTrig;
+//reg[2:0] firstTrig;
+reg[7:0] firstTrigDeadTime;
+reg[7:0] whichBitsOn;
+reg otherTrigFiring;
 reg firstTrigFired=0;
+reg firstTrigFired_dly=0;
 reg[55:0] lastClockFired;
 reg[7:0] nLayerThreshold2;
 reg[7:0] nHitThreshold2;
@@ -83,7 +88,6 @@ always@(posedge clk_adc) begin
 	nLayerThreshold2<=nLayerThreshold;
 	nHitThreshold2<=nHitThreshold;
 	dead_time2<=dead_time;
-		
 	//set random number buffer every microsecond
 	if(counter125==125) begin
 		randnum_buffer[0] <= randnum;
@@ -116,6 +120,7 @@ always@(posedge clk_adc) begin
 			//coax_out[i] <= coaxinreg[i]; // passthrough		
 			if (Tout[i]>0) Tout[i] <= Tout[i]-1; // count down how long the triggers have been active
 			if (triedtofire[i]>0) triedtofire[i] <= triedtofire[i]-1; // count down deadtime for outputs
+			if (firstTrigDeadTime>0) firstTrigDeadTime <= firstTrigDeadTime-1; // count down deadtime for outputs
 		   if (triedtofire[i]>0) isFiring <=1; // don't fire any trigger within the coincidence time
 			else isFiring<=0;
 		end
@@ -286,17 +291,31 @@ always@(posedge clk_adc) begin
 			
 		// if any trigger has fired start forming the trigger bitstring
    i=0; while (i<8) begin	
-		if (firstTrigFired==0 && triedtofire[i]>0) begin
-			firstTrig<=i;
+		if (firstTrigFired==0 && (triedtofire[i]>0) && (firstTrigDeadTime == 0) && (|(whichBitsOn) == 0)) begin
+			firstTrigDeadTime<=dead_time2;
 			firstTrigFired<=1;
 			lastClockFired<=counter;
 			break; // added apr 28
 		end
 		i=i+1;
 	end
+
+   i=0; while (i<8) begin	
+		if (firstTrigFired & ~firstTrigFired_dly) begin
+			// reset at the rising edge of firstTrigFired
+			whichBitsOn[i] <= 0;
+		end
+		else begin
+			whichBitsOn[i] <= (triedtofire[i] > 0);
+		end
+		i=i+1;
+	end
+
+	firstTrigFired_dly <= firstTrigFired;
 	
 	// if first trigger to fire has finished dead time then add trigger bitstring to triggerFired list
-	if(lastTrigFired > 0 && !syncClock2 && !resetOut2 && firstTrigFired==1 && triedtofire[firstTrig]==0) begin
+	//if(lastTrigFired > 0 && !syncClock2 && !resetOut2 && firstTrigFired==1 && triedtofire[firstTrig]==0) begin
+	if(lastTrigFired > 0 && !syncClock2 && !resetOut2 && firstTrigFired==1 && firstTrigDeadTime == 0 && (|whichBitsOn) == 0) begin
 	   triggerFired[triggerCounter] <= lastTrigFired;
 		clockCounter[triggerCounter] <= lastClockFired;
 		triggerCounter<=triggerCounter+1;
