@@ -353,7 +353,7 @@ always @(posedge clk_adc) begin
 		end		
 		
 		//buffer inputs from 16 extra sma inputs
-		if(j<16) begin
+		if(j<1) begin
 			if(coaxinregEx[j]) begin
 				TinEx[j] <= coincidence_time;
 			end
